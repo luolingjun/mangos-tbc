@@ -8,7 +8,7 @@
 # WITHOUT ANY WARRANTY, to the extent permitted by law; without even the
 # implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-cmake_minimum_required (VERSION 3.0)
+cmake_minimum_required (VERSION 3.5)
 
 set(EXECUTABLE_NAME "MoveMapGen")
 project (${EXECUTABLE_NAME})
@@ -48,8 +48,8 @@ add_library(vmaplib STATIC
 target_link_libraries(vmaplib
   PUBLIC shared
   PUBLIC g3dlite
-  PUBLIC detour
-  PUBLIC recast
+  PUBLIC Detour
+  PUBLIC Recast
   PUBLIC ${EXTRA_LIBS}
 )
 
@@ -83,8 +83,8 @@ if (BUILD_EXTRACTORS)
 
   target_link_libraries(${EXECUTABLE_NAME}
     vmaplib
-    detour
-    recast
+    Detour
+    Recast
     mmaplib
   )
 
