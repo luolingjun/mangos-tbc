@@ -777,6 +777,19 @@ struct IncreasedHealingDoneDummy : public AuraScript
     }
 };
 
+struct IncreasedSpellDamageDoneDummy : public AuraScript
+{
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        aura->GetTarget()->RegisterScriptedLocationAura(aura, SCRIPT_LOCATION_SPELL_DAMAGE_DONE, apply);
+    }
+
+    void OnDamageCalculate(Aura* aura, Unit* /*attacker*/, Unit* /*victim*/, int32& advertisedBenefit, float& /*totalMod*/) const override
+    {
+        advertisedBenefit += aura->GetModifier()->m_amount;
+    }
+};
+
 struct spell_scourge_strike : public SpellScript
 {
     bool OnCheckTarget(const Spell* /*spell*/, Unit* target, SpellEffectIndex /*eff*/) const override
@@ -1072,7 +1085,7 @@ struct ForgetAxesmith : public SpellScript
 
         Player* player = static_cast<Player*>(spell->GetUnitTarget());
         player->removeSpell(36260);   // Wicked Edge of the Planes
-        player->removeSpell(34562);   // Black Planar Edge
+        player->removeSpell(34542);   // Black Planar Edge
         player->removeSpell(34541);   // The Planar Edge
         player->removeSpell(36134);   // Stormforged Axe
         player->removeSpell(36135);   // Skyforged Great Axe
@@ -1096,7 +1109,7 @@ struct ForgetHammersmith : public SpellScript
         player->removeSpell(34545);   // Drakefist Hammer
         player->removeSpell(36136);   // Lavaforged Warhammer
         player->removeSpell(34547);   // Thunder
-        player->removeSpell(34567);   // Deep Thunder
+        player->removeSpell(34548);   // Deep Thunder
         player->removeSpell(36263);   // Stormherald
         player->removeSpell(36137);   // Great Earthforged Hammer
     }
@@ -1184,6 +1197,7 @@ void AddSC_spell_scripts()
     RegisterSpellScript<spell_effect_summon_no_follow_movement>("spell_effect_summon_no_follow_movement");
     RegisterSpellScript<SpellHasteHealerTrinket>("spell_spell_haste_healer_trinket");
     RegisterSpellScript<IncreasedHealingDoneDummy>("spell_increased_healing_done_dummy");
+    RegisterSpellScript<IncreasedSpellDamageDoneDummy>("spell_increased_spell_damage_done_dummy");
     RegisterSpellScript<spell_scourge_strike>("spell_scourge_strike");
     RegisterSpellScript<TribalDeath>("spell_tribal_death");
     RegisterSpellScript<PreventSpellIfSameAuraOnCaster>("spell_prevent_spell_if_same_aura_on_caster");

@@ -74,16 +74,20 @@ enum
 enum NethekurseActions
 {
     NETHEKURSE_ACTION_MAX,
-    NETHEKURSE_TAUNT_PEONS
+    NETHEKURSE_TAUNT_PEONS,
+    NETHEKURSE_START_FIGHT,
+    NETHEKURSE_PEON_RP_CD
 };
 
 struct boss_grand_warlock_nethekurseAI : public CombatAI
 {
     boss_grand_warlock_nethekurseAI(Creature* creature) : CombatAI(creature, NETHEKURSE_ACTION_MAX),
         m_instance(static_cast<ScriptedInstance*>(creature->GetInstanceData())), m_isRegularMode(creature->GetMap()->IsRegularDifficulty()),
-        m_introOnce(false)
+        m_introOnce(false), m_peonRPCD(false)
     {
-        AddCustomAction(NETHEKURSE_TAUNT_PEONS, 545u, [&]() { DoTauntPeons(); });
+        AddCustomAction(NETHEKURSE_TAUNT_PEONS, true, [&]() { DoTauntPeons(); });
+        AddCustomAction(NETHEKURSE_START_FIGHT, true, [&]() { DoStartFight(); });
+        AddCustomAction(NETHEKURSE_PEON_RP_CD, true, [&]() { DoPeonCD(); });
         AddOnKillText(SAY_SLAY_1, SAY_SLAY_2, SAY_SLAY_3, SAY_SLAY_4);
         SetReactState(REACT_DEFENSIVE);
     }
@@ -92,6 +96,7 @@ struct boss_grand_warlock_nethekurseAI : public CombatAI
     bool m_isRegularMode;
 
     bool m_introOnce;
+    bool m_peonRPCD;
 
     uint8 m_peonKilledCount;
 
@@ -106,37 +111,73 @@ struct boss_grand_warlock_nethekurseAI : public CombatAI
 
     void DoYellForPeonAggro()
     {
-        switch (urand(0, 3))
+        if (!m_peonRPCD)
         {
-            case 0: DoBroadcastText(SAY_PEON_ATTACK_1, m_creature); break;
-            case 1: DoBroadcastText(SAY_PEON_ATTACK_2, m_creature); break;
-            case 2: DoBroadcastText(SAY_PEON_ATTACK_3, m_creature); break;
-            case 3: DoBroadcastText(SAY_PEON_ATTACK_4, m_creature); break;
+            if(!m_creature->IsInCombat())
+            {
+                m_creature->GetMotionMaster()->PauseWaypoints(5000);
+                m_creature->SetFacingTo(4.5727f);
+                m_creature->HandleEmote(EMOTE_ONESHOT_LAUGH);
+
+                switch (urand(0, 3))
+                {
+                    case 0: DoBroadcastText(SAY_PEON_ATTACK_1, m_creature); break;
+                    case 1: DoBroadcastText(SAY_PEON_ATTACK_2, m_creature); break;
+                    case 2: DoBroadcastText(SAY_PEON_ATTACK_3, m_creature); break;
+                    case 3: DoBroadcastText(SAY_PEON_ATTACK_4, m_creature); break;
+                }
+                ResetTimer(NETHEKURSE_PEON_RP_CD, 5000);
+                m_peonRPCD = true;
+            }
         }
     }
-
-    void DoYellForPeonDeath(Unit* killer)
+    void DoPeonCD()
     {
+        m_peonRPCD = false;
+        DisableTimer(NETHEKURSE_TAUNT_PEONS);
+    }
+    void DoYellForPeonDeath()
+    {        
         if (m_peonKilledCount >= 4)
             return;
 
-        switch (urand(0, 2))
+
+        if (!m_peonRPCD)
         {
-            case 0: DoBroadcastText(SAY_PEON_DIE_1, m_creature); break;
-            case 1: DoBroadcastText(SAY_PEON_DIE_2, m_creature); break;
-            case 2: DoBroadcastText(SAY_PEON_DIE_3, m_creature); break;
+            m_creature->GetMotionMaster()->PauseWaypoints(4000);
+            m_creature->SetFacingTo(4.5727f);
+            m_creature->HandleEmoteState(EMOTE_STATE_APPLAUD);
+
+            switch (urand(0, 2))
+            {
+                case 0: DoBroadcastText(SAY_PEON_DIE_1, m_creature); break;
+                case 1: DoBroadcastText(SAY_PEON_DIE_2, m_creature); break;
+                case 2: DoBroadcastText(SAY_PEON_DIE_3, m_creature); break;
+            }
+
+            ++m_peonKilledCount;
+
+            if (m_peonKilledCount == 4)
+            {
+                DisableTimer(NETHEKURSE_TAUNT_PEONS);
+                SetReactState(REACT_AGGRESSIVE);
+
+                // Start fight after 4 seconds
+                ResetTimer(NETHEKURSE_START_FIGHT, 4000);
+            }
+            else
+            {
+                ResetTimer(NETHEKURSE_PEON_RP_CD, 5000);
+                m_peonRPCD = true;
+            }
+
         }
+    }
 
-        ++m_peonKilledCount;
-
-        if (m_peonKilledCount == 4)
-        {
-            DisableTimer(NETHEKURSE_TAUNT_PEONS);
-            SetReactState(REACT_AGGRESSIVE);
-
-            if (killer)
-                AttackStart(killer);
-        }
+    void DoStartFight()
+    {
+        DisableTimer(NETHEKURSE_START_FIGHT);
+        m_creature->SetInCombatWithZone();
     }
 
     void DoTauntPeons()
@@ -174,10 +215,9 @@ struct boss_grand_warlock_nethekurseAI : public CombatAI
         ResetTimer(NETHEKURSE_TAUNT_PEONS, urand(30000, 35000));
     }
 
-    // todo: use areatrigger 4347 instead (or when door lock is picked)
-    void MoveInLineOfSight(Unit* who) override
+    void StartIntro()
     {
-        if (!m_introOnce && who->IsPlayer() && !static_cast<Player*>(who)->IsGameMaster() && m_creature->IsWithinDistInMap(who, 45.0f) && m_creature->IsWithinLOSInMap(who))
+        if (!m_introOnce)
         {
             m_introOnce = true;
             ResetTimer(NETHEKURSE_TAUNT_PEONS, 1);
@@ -185,9 +225,7 @@ struct boss_grand_warlock_nethekurseAI : public CombatAI
             if (m_instance)
                 m_instance->SetData(TYPE_NETHEKURSE, IN_PROGRESS);
         }
-
-        ScriptedAI::MoveInLineOfSight(who);
-    }
+    }        
 
     void Aggro(Unit* /*who*/) override
     {
@@ -281,7 +319,7 @@ struct mob_fel_orc_convertAI : public ScriptedAI
             if (Creature* nethekurse = m_instance->GetSingleCreatureFromStorage(NPC_NETHEKURSE))
             {
                 if (boss_grand_warlock_nethekurseAI* nethekurseAI = dynamic_cast<boss_grand_warlock_nethekurseAI*>(nethekurse->AI()))
-                    nethekurseAI->DoYellForPeonDeath(killer);
+                    nethekurseAI->DoYellForPeonDeath();
             }
         }
     }
@@ -317,6 +355,59 @@ struct TargetFissures : public SpellScript
     }
 };
 
+// 30741 - Death Coil
+struct DeathCoil : public AuraScript
+{
+    void OnApply(Aura* aura, bool apply) const override
+    {
+        if (!apply)
+            if (Unit* target = aura->GetTarget())            
+                if (!target->IsInCombat())
+                    target->GetMotionMaster()->MoveTargetedHome();            
+    }
+};
+
+bool AreaTrigger_at_shh_netherkurse(Player* player, AreaTriggerEntry const* /*at*/)
+{
+    if (player->IsGameMaster() || !player->IsAlive())
+        return false;
+
+    if (ScriptedInstance* pInstance = (ScriptedInstance*)player->GetInstanceData())
+    {
+        if (pInstance->GetData(TYPE_NETHEKURSE) == DONE)
+            return false;
+
+        if (pInstance->GetData(TYPE_NETHEKURSE) == IN_PROGRESS)
+            return false;
+
+        if (Creature* pNetherkurse = pInstance->GetSingleCreatureFromStorage(NPC_NETHEKURSE))
+        {
+            if (boss_grand_warlock_nethekurseAI* pNetherkurseAI = dynamic_cast<boss_grand_warlock_nethekurseAI*>(pNetherkurse->AI()))
+                pNetherkurseAI->StartIntro();
+        }
+    }
+    return true;
+}
+
+bool GOUse_go_netherkurse_door(Player* player, GameObject* go)
+{
+    if (ScriptedInstance* pInstance = (ScriptedInstance*)player->GetInstanceData())
+    {
+        if (pInstance->GetData(TYPE_NETHEKURSE) == DONE)
+            return false;
+
+        if (pInstance->GetData(TYPE_NETHEKURSE) == IN_PROGRESS)
+            return false;
+
+        if (Creature* pNetherkurse = pInstance->GetSingleCreatureFromStorage(NPC_NETHEKURSE))
+        {
+            if (boss_grand_warlock_nethekurseAI* pNetherkurseAI = dynamic_cast<boss_grand_warlock_nethekurseAI*>(pNetherkurse->AI()))
+                pNetherkurseAI->StartIntro();
+        }
+    }
+    return true;
+}
+
 void AddSC_boss_grand_warlock_nethekurse()
 {
     Script* pNewScript = new Script;
@@ -330,4 +421,15 @@ void AddSC_boss_grand_warlock_nethekurse()
     pNewScript->RegisterSelf();
 
     RegisterSpellScript<TargetFissures>("spell_target_fissures");
+    RegisterSpellScript<DeathCoil>("spell_death_coil");
+
+    pNewScript = new Script;
+    pNewScript->Name = "at_shh_netherkurse";
+    pNewScript->pAreaTrigger = &AreaTrigger_at_shh_netherkurse;
+    pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
+    pNewScript->Name = "go_netherkurse_door";
+    pNewScript->pGOUse = &GOUse_go_netherkurse_door;
+    pNewScript->RegisterSelf();
 }
