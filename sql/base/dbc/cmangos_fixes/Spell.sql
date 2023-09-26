@@ -2198,8 +2198,18 @@ INSERT INTO spell_template(Id, SchoolMask, Category, Dispel, Mechanic, Attribute
 -- SPELL_ATTR_SS_IGNORE_EVADE
 -- ==========================
 UPDATE `spell_template` SET `AttributesServerSide` = `AttributesServerSide`|4 WHERE `Id` IN (
+3418, -- Improved Blocking
+5667, -- Bogling Passive
+5888, -- Darkshore Frenzy
+7131, -- Illusion Passive
+8203, -- Elemental Spirit Invisibility
+10092, -- Sand Storm
+10868, -- Frost Vulnerable
+11011, -- Stone Watcher of Norgannon Passive
+11048, -- Perm. Illusion Bishop Tyriona
 15978, -- Puncture
 21911, -- Puncture
+24692, -- Hakkar Power
 28330 -- Flameshocker - Immolate Visual
 );
 
@@ -2363,6 +2373,7 @@ INSERT INTO spell_template(Id, SchoolMask, Category, Dispel, Mechanic, Attribute
 -- ============================================================
 UPDATE `spell_template` SET `AttributesServerSide` = `AttributesServerSide`|0x00000004 WHERE `Id` IN (
 4044,  -- Target Dummy Passive
+5301, -- Defensive State (DND)
 6742, -- Bloodlust
 8852, -- Moss Hide
 11816, -- Land Mine Arming
@@ -2373,6 +2384,7 @@ UPDATE `spell_template` SET `AttributesServerSide` = `AttributesServerSide`|0x00
 17205, -- Winterfall Firewater
 18163, -- Strength of Arko'narin
 18167, -- Holy Fire
+21080, -- Putrid Breath
 23378, -- Magma Splash
 27791, -- Suicide (Suicide)
 21789, -- Hate to Half (Hate to Half)
@@ -2719,7 +2731,10 @@ UPDATE `spell_template` SET `AttributesEx4`=`AttributesEx4`|64 WHERE `Id`=33949;
 
 -- Backstab spells used by creatures
 -- these are all easily controlled and made castable only from behind via AI, however when a player Mind Controls the NPC, we need these attributes to prevent usage from the front:
-UPDATE `spell_template` SET AttributesServerside=AttributesServerside|0x00000008 WHERE `Id` IN (7159,15582,15657,22416,30992,34614,37685);
+UPDATE `spell_template` SET AttributesServerside=AttributesServerside|0x00000008 WHERE `Id` IN (53,2589,2590,2591,6595,7159,8355,8721,11279,11280,11281,15582,15657,22416,24016,25300,26863,30992,34171,34614,37685,37956); -- SPELL_ATTR_SS_FACING_BACK
+
+-- Infront only Spells - SPELL_FACING_FLAG_INFRONT "Must be in front of the caster."
+UPDATE `spell_template` SET `FacingCasterFlags` = 1 WHERE `Id` IN (12540,13579,29425,36862,38863);
 
 -- Stormchops - Fix targeting
 UPDATE spell_template SET EffectImplicitTargetA2=1,EffectImplicitTargetB2=0 WHERE Id IN(43730);
