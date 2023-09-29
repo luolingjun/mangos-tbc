@@ -8917,10 +8917,10 @@ void Aura::OnDamageCalculate(Unit* victim, Unit* attacker, int32& advertisedBene
         return script->OnDamageCalculate(this, attacker, victim, advertisedBenefit, totalMod);
 }
 
-void Aura::OnCritChanceCalculate(Unit const* victim, float& chance)
+void Aura::OnCritChanceCalculate(Unit const* victim, float& chance, SpellEntry const* spellInfo)
 {
     if (AuraScript* script = GetAuraScript())
-        return script->OnCritChanceCalculate(this, victim, chance);
+        return script->OnCritChanceCalculate(this, victim, chance, spellInfo);
 }
 
 void Aura::OnApply(bool apply)
@@ -8949,10 +8949,10 @@ SpellAuraProcResult Aura::OnProc(ProcExecutionData& data)
     return SPELL_AURA_PROC_OK;
 }
 
-void Aura::OnAbsorb(int32& currentAbsorb, int32& remainingDamage, uint32& reflectedSpellId, int32& reflectDamage, bool& preventedDeath, bool& dropCharge)
+void Aura::OnAbsorb(int32& currentAbsorb, int32& remainingDamage, uint32& reflectedSpellId, int32& reflectDamage, bool& preventedDeath, bool& dropCharge, DamageEffectType damageType)
 {
     if (AuraScript* script = GetAuraScript())
-        script->OnAbsorb(this, currentAbsorb, remainingDamage, reflectedSpellId, reflectDamage, preventedDeath, dropCharge);
+        script->OnAbsorb(this, currentAbsorb, remainingDamage, reflectedSpellId, reflectDamage, preventedDeath, dropCharge, damageType);
 }
 
 void Aura::OnManaAbsorb(int32& currentAbsorb)

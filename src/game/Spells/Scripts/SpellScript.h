@@ -92,7 +92,7 @@ struct AuraScript
     virtual void OnDamageCalculate(Aura* /*aura*/, Unit* /*attacker*/, Unit* /*victim*/, int32& /*advertisedBenefit*/, float& /*totalMod*/) const {}
     // called during duration calculation - target can be nullptr for channel duration calculation
     virtual int32 OnDurationCalculate(WorldObject const* /*caster*/, Unit const* /*target*/, int32 duration) const { return duration; }
-    virtual void OnCritChanceCalculate(Aura* /*aura*/, Unit const* /*target*/, float& /*chance*/) const {}
+    virtual void OnCritChanceCalculate(Aura* /*aura*/, Unit const* /*target*/, float& /*chance*/, SpellEntry const* /*spellInfo*/) const {}
     // the following two hooks are done in an alternative fashion due to how they are usually used
     // if an aura is applied before, its removed after, and if some aura needs to do something after aura effect is applied, need to revert that change before its removed
     // called before aura apply and after aura unapply
@@ -106,7 +106,7 @@ struct AuraScript
     // called before proc handler
     virtual SpellAuraProcResult OnProc(Aura* /*aura*/, ProcExecutionData& /*procData*/) const { return SPELL_AURA_PROC_OK; }
     // called on absorb of this aura
-    virtual void OnAbsorb(Aura* /*aura*/, int32& /*currentAbsorb*/, int32& /*remainingDamage*/, uint32& /*reflectedSpellId*/, int32& /*reflectDamage*/, bool& /*preventedDeath*/, bool& /*dropCharge*/) const {}
+    virtual void OnAbsorb(Aura* /*aura*/, int32& /*currentAbsorb*/, int32& /*remainingDamage*/, uint32& /*reflectedSpellId*/, int32& /*reflectDamage*/, bool& /*preventedDeath*/, bool& /*dropCharge*/, DamageEffectType /*damageType*/) const {}
     // called on mana shield absorb of this aura
     virtual void OnManaAbsorb(Aura* /*aura*/, int32& /*currentAbsorb*/) const {}
     // called on death prevention
