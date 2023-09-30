@@ -3957,57 +3957,8 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadc
 ('-1540206','Gakarah ma!','0','0','0','0','16699','Common Hellfire Orc Text');
 
 -- -1 542 000 BLOOD FURNACE
-INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadcast_text_id,comment) VALUES
-('-1542000','Who dares interrupt--What is this; what have you done? You''ll ruin everything!','10164','1','0','0','15130','kelidan SAY_WAKE'),
-('-1542001','You mustn''t let him loose!','10166','1','0','0','17673','kelidan SAY_ADD_AGGRO_1'),
-('-1542002','Ignorant whelps!','10167','1','0','0','17674','kelidan SAY_ADD_AGGRO_2'),
-('-1542003','You fools! He''ll kill us all!','10168','1','0','0','17675','kelidan SAY_ADD_AGGRO_3'),
-('-1542004','Just as you deserve!','10169','1','0','0','17670','kelidan SAY_KILL_1'),
-('-1542005','Your friends will soon be joining you.','10170','1','0','0','17671','kelidan SAY_KILL_2'),
-('-1542006','Closer! Come closer... and burn!','10165','1','0','0','15132','kelidan SAY_NOVA'),
-('-1542007','Good...luck. You''ll need it.','10171','1','0','0','17672','kelidan SAY_DIE'),
-
-('-1542008','Come intruders....','0','1','0','0','14259','broggok SAY_AGGRO'),
-
-('-1542009','My work must not be interrupted!','10286','1','0','0','17679','the_maker SAY_AGGRO_1'),
-('-1542010','Perhaps I can find a use for you...','10287','1','0','0','17680','the_maker SAY_AGGRO_2'),
-('-1542011','Anger...hate... These are tools I can use.','10288','1','0','0','17681','the_maker SAY_AGGRO_3'),
-('-1542012','Let''s see what I can make of you!','10289','1','0','0','17683','the_maker SAY_KILL_1'),
-('-1542013','It is pointless to resist.','10290','1','0','0','17684','the_maker SAY_KILL_2'),
-('-1542014','Stay away from... Me!','10291','1','0','0','17685','the_maker SAY_DIE'),
-
-('-1542015','Kill them!','0','1','0','0','15115','broggok SAY_BROGGOK_INTRO');
 
 -- -1 543 000 HELLFIRE RAMPARTS
-INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadcast_text_id,comment) VALUES
-('-1543000','Do you smell that?  Fresh meat has somehow breached our citadel.  Be wary of any intruders.','0','1','0','0','13999','gargolmar SAY_TAUNT'),
-('-1543001','Heal me, quickly!','10329','1','0','0','17498','gargolmar SAY_HEAL'),
-('-1543002','Back off, pup!','10330','1','0','0','17499','gargolmar SAY_SURGE'),
-('-1543003','What have we here?','10331','1','0','0','17502','gargolmar SAY_AGGRO_1'),
-('-1543004','This may hurt a little....','10332','1','0','0','17503','gargolmar SAY_AGGRO_2'),
-('-1543005','I''m going to enjoy this...','10333','1','0','0','17504','gargolmar SAY_AGGRO_3'),
-('-1543006','Say farewell!','10334','1','0','0','17500','gargolmar SAY_KILL_1'),
-('-1543007','Much too easy.','10335','1','0','0','17501','gargolmar SAY_KILL_2'),
-('-1543008','Hahah.. <cough> ..argh!','10336','1','0','0','0','gargolmar SAY_DIE'),
-
-('-1543009','You dare stand against ME?','10280','1','0','0','17634','omor SAY_AGGRO_1'),
-('-1543010','I will not be defeated!','10279','1','0','0','17633','omor SAY_AGGRO_2'),
-('-1543011','Your insolence will be your death!','10281','1','0','0','17635','omor SAY_AGGRO_3'),
-('-1543012','Achor she-ki!  Feast, my pet!  Eat your fill!','10277','1','0','0','17637','omor SAY_SUMMON'),
-('-1543013','A-kreesh!','10278','1','0','0','17636','omor SAY_CURSE'),
-('-1543014','Die, weakling!','10282','1','0','0','17631','omor SAY_KILL_1'),
-('-1543015','It is... not over.','10284','1','0','0','17630','omor SAY_DIE'),
-('-1543016','I am victorious!','10283','1','0','0','17632','omor SAY_WIPE'),
-
-('-1543017','You have faced many challenges.... Pity they were all in vain! Soon your people will kneel to MY lord!','10292','1','0','0','13981','vazruden SAY_INTRO'),
-('-1543018','Your time is running out!','10294','1','0','0','17492','vazruden SAY_AGGRO1'),
-('-1543019','You are nothing! I answer a higher call....','10295','1','0','0','17493','vazruden SAY_AGGRO2'),
-('-1543020','The dark lord laughs at you!','10296','1','0','0','17494','vazruden SAY_AGGRO3'),
-('-1543021','Is there no one left to test me? ','10293','1','0','0','17491','vazruden SAY_TAUNT'),
-('-1543022','It is over! Finished!','10297','1','0','0','17495','vazruden SAY_KILL1'),
-('-1543023','Your days are done!','10298','1','0','0','17496','vazruden SAY_KILL2'),
-('-1543024','My lord will be... the end of you all!','10299','1','0','0','17497','vazruden SAY_DEATH'),
-('-1543025','Nazan descends from the sky.','0','3','0','0','20472','vazruden EMOTE_DESCEND');
 
 -- -1 544 000 MAGTHERIDON'S LAIR
 INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadcast_text_id,comment) VALUES
