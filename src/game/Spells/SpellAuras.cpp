@@ -369,39 +369,9 @@ Aura::Aura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 const* curr
             }
         }
 
-        // scripting location for custom aura damage - needs to be moved to spellscripting for proper checkcast interaction
-        switch (spellproto->Id)
-        {
-            case 6143: // Frost Ward
-            case 8461: // spell reflect chance
-            case 8462:
-            case 10177:
-            case 28609:
-            case 32796:
-            {
-                if (eff != EFFECT_INDEX_1)
-                    break;
-                SpellAuraHolder* holder = target->GetSpellAuraHolder(11189);
-                if (!holder)
-                    holder = target->GetSpellAuraHolder(28332);
-                if (holder)
-                    damage += target->CalculateSpellEffectValue(target, holder->GetSpellProto(), EFFECT_INDEX_1);
-                break;
-            }
-            case 8516: // Windfury Totem
-            case 10608:
-            case 10610:
-            case 25583:
-            case 25584:
-                if (castItem)
-                    damage += (damage * castItem->GetEnchantmentModifier() / 100);
-                break;
-            default: break;
-        }
-
         damage = CalculateAuraEffectValue(caster, target, spellproto, eff, damage);
 
-        damage = OnAuraValueCalculate(caster, damage);
+        damage = OnAuraValueCalculate(caster, damage, castItem);
     }
 
     DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "Aura: construct Spellid : %u, Aura : %u Target : %d Damage : %d", spellproto->Id, spellproto->EffectApplyAuraName[eff], spellproto->EffectImplicitTargetA[eff], damage);
@@ -843,7 +813,7 @@ void Aura::UpdateAuraScaling()
     if (Unit* caster = GetCaster())
     {
         int32 amount = 0;
-        amount = OnAuraValueCalculate(caster, amount);
+        amount = OnAuraValueCalculate(caster, amount, nullptr);
         // Reapply if amount change
         if (amount != GetModifier()->m_amount)
         {
@@ -8154,7 +8124,7 @@ void SpellAuraHolder::SetStackAmount(uint32 stackAmount, Unit* newCaster)
         {
             int32 baseAmount = aur->GetModifier()->m_baseAmount;
             int32 amount = m_stackAmount * baseAmount;
-            amount = aur->OnAuraValueCalculate(newCaster, amount);
+            amount = aur->OnAuraValueCalculate(newCaster, amount, nullptr);
             // Reapply if amount change
             if (!baseAmount || amount != aur->GetModifier()->m_amount)
             {
@@ -8901,11 +8871,11 @@ void Aura::OnAuraInit()
         script->OnAuraInit(this);
 }
 
-int32 Aura::OnAuraValueCalculate(Unit* caster, int32 currentValue)
+int32 Aura::OnAuraValueCalculate(Unit* caster, int32 currentValue, Item* castItem)
 {
     if (AuraScript* script = GetAuraScript())
     {
-        AuraCalcData data(this, caster, GetTarget(), GetSpellProto(), GetEffIndex());
+        AuraCalcData data(this, caster, GetTarget(), GetSpellProto(), GetEffIndex(), castItem);
         return script->OnAuraValueCalculate(data, currentValue);
     }
     return currentValue;
