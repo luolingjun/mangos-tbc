@@ -178,9 +178,9 @@ struct npc_shattered_hand_centurion : public CombatAI
     ScriptedInstance* m_instance;
     bool m_eventStarted;
 
-    void Aggro(Unit* who) override
+    void Aggro(Unit* /*who*/) override
     {
-        switch (urand(0, 5))
+        switch (urand(0, 6))
         {
             case 0: DoBroadcastText(SAY_AGGRO1, m_creature); break;
             case 1: DoBroadcastText(SAY_AGGRO2, m_creature); break;
@@ -243,7 +243,7 @@ struct npc_shattered_hand_centurion : public CombatAI
         }
     }
 
-    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* invoker, uint32 /*miscValue*/) override
+    void ReceiveAIEvent(AIEventType eventType, Unit* /*sender*/, Unit* /*invoker*/, uint32 /*miscValue*/) override
     {
         if (eventType == AI_EVENT_CUSTOM_A)
         {
@@ -274,7 +274,6 @@ struct npc_shattered_hand_centurion : public CombatAI
 void AddSC_shattered_halls()
 {
     Script* pNewScript = new Script;
-    pNewScript = new Script;
     pNewScript->Name = "npc_shattered_hand_centurion";
     pNewScript->GetAI = &GetNewAIInstance<npc_shattered_hand_centurion>;
     pNewScript->RegisterSelf();
