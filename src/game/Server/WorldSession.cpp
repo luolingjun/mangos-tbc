@@ -966,18 +966,18 @@ void WorldSession::LoadGlobalAccountData()
     );
 }
 
-void WorldSession::LoadAccountData(QueryResult* result, uint32 mask)
+void WorldSession::LoadAccountData(std::unique_ptr<QueryResult> queryResult, uint32 mask)
 {
     for (uint32 i = 0; i < NUM_ACCOUNT_DATA_TYPES; ++i)
         if (mask & (1 << i))
             m_accountData[i] = AccountData();
 
-    if (!result)
+    if (!queryResult)
         return;
 
     do
     {
-        Field* fields = result->Fetch();
+        Field* fields = queryResult->Fetch();
 
         uint32 type = fields[0].GetUInt32();
         if (type >= NUM_ACCOUNT_DATA_TYPES)
@@ -996,9 +996,7 @@ void WorldSession::LoadAccountData(QueryResult* result, uint32 mask)
 
         m_accountData[type].Time = time_t(fields[1].GetUInt64());
         m_accountData[type].Data = fields[2].GetCppString();
-    } while (result->NextRow());
-
-    delete result;
+    } while (queryResult->NextRow());
 }
 
 void WorldSession::SetAccountData(AccountDataType type, time_t time_, const std::string& data)
@@ -1072,9 +1070,9 @@ void WorldSession::LoadTutorialsData()
     for (unsigned int& m_Tutorial : m_Tutorials)
         m_Tutorial = 0;
 
-    QueryResult* result = CharacterDatabase.PQuery("SELECT tut0,tut1,tut2,tut3,tut4,tut5,tut6,tut7 FROM character_tutorial WHERE account = '%u'", GetAccountId());
+    auto queryResult = CharacterDatabase.PQuery("SELECT tut0,tut1,tut2,tut3,tut4,tut5,tut6,tut7 FROM character_tutorial WHERE account = '%u'", GetAccountId());
 
-    if (!result)
+    if (!queryResult)
     {
         m_tutorialState = TUTORIALDATA_NEW;
         return;
@@ -1082,14 +1080,12 @@ void WorldSession::LoadTutorialsData()
 
     do
     {
-        Field* fields = result->Fetch();
+        Field* fields = queryResult->Fetch();
 
         for (int iI = 0; iI < 8; ++iI)
             m_Tutorials[iI] = fields[iI].GetUInt32();
     }
-    while (result->NextRow());
-
-    delete result;
+    while (queryResult->NextRow());
 
     m_tutorialState = TUTORIALDATA_UNCHANGED;
 }
