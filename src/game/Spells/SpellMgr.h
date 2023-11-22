@@ -1760,7 +1760,12 @@ inline bool IsIgnoreLosSpell(SpellEntry const* spellInfo)
     return spellInfo->HasAttribute(SPELL_ATTR_EX2_IGNORE_LINE_OF_SIGHT);
 }
 
-inline bool IsIgnoreLosSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex effIdx)
+inline bool IsIgnoreLosSpellCast(SpellEntry const* spellInfo)
+{
+    return spellInfo->rangeIndex == 13 || IsIgnoreLosSpell(spellInfo);
+}
+
+inline bool IsIgnoreLosSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex effIdx, bool targetB)
 {
     if (spellInfo->HasAttribute(SPELL_ATTR_EX5_ALWAYS_LINE_OF_SIGHT))
         return false;
@@ -1772,15 +1777,13 @@ inline bool IsIgnoreLosSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex
         case TARGET_UNIT_FRIEND_AND_PARTY:
         case TARGET_UNIT_RAID_AND_CLASS:
         case TARGET_ENUM_UNITS_PARTY_WITHIN_CASTER_RANGE: return true;
-        default: break;
+        default:
+            if (IsCheckCastTarget(targetB ? spellInfo->EffectImplicitTargetB[effIdx] : spellInfo->EffectImplicitTargetA[effIdx]))
+                return IsIgnoreLosSpellCast(spellInfo);
+            break;
     }
 
     return spellInfo->EffectRadiusIndex[effIdx] == 28 || IsIgnoreLosSpell(spellInfo);
-}
-
-inline bool IsIgnoreLosSpellCast(SpellEntry const* spellInfo)
-{
-    return spellInfo->rangeIndex == 13 || IsIgnoreLosSpell(spellInfo);
 }
 
 // applied when item is received/looted/equipped
@@ -2456,15 +2459,15 @@ enum ProcFlagsEx
     PROC_EX_DEFLECT             = 0x0000200,
     PROC_EX_ABSORB              = 0x0000400,
     PROC_EX_REFLECT             = 0x0000800,
-    PROC_EX_INTERRUPT           = 0x0001000,                // Melee hit result can be Interrupt (not used)
+    PROC_EX_INTERRUPT           = 0x0001000,                // melee hit result can be Interrupt (not used)
     PROC_EX_RESERVED1           = 0x0002000,
     PROC_EX_RESERVED2           = 0x0004000,
     PROC_EX_RESERVED3           = 0x0008000,
-    PROC_EX_EX_TRIGGER_ALWAYS   = 0x0010000,                // If set trigger always ( no matter another flags) used for drop charges
-    PROC_EX_EX_ONE_TIME_TRIGGER = 0x0020000,                // If set trigger always but only one time (not used)
-    PROC_EX_PERIODIC_POSITIVE   = 0x0040000,                // For periodic heal
+    PROC_EX_EX_TRIGGER_ON_NO_DAMAGE = 0x0010000,            // if set, hits trigger even if no damage/healing is dealt
+    PROC_EX_EX_ONE_TIME_TRIGGER = 0x0020000,                // if set trigger always but only one time (not used)
+    PROC_EX_PERIODIC_POSITIVE   = 0x0040000,                // for periodic heal
     PROC_EX_CAST_END            = 0x0080000,                // procs on end of cast
-    PROC_EX_MAGNET              = 0x0100000,                // For grounding totem hit
+    PROC_EX_MAGNET              = 0x0100000,                // for grounding totem hit
 
     // Flags for internal use - do not use these in db!
     PROC_EX_INTERNAL_HOT        = 0x2000000

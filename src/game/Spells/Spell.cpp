@@ -181,6 +181,12 @@ void SpellCastTargets::setItemTarget(Item* item)
     m_targetMask |= TARGET_FLAG_ITEM;
 }
 
+void SpellCastTargets::clearItemPointer()
+{
+    // keep the other information so its clear how the spell was targeted
+    m_itemTarget = nullptr;
+}
+
 void SpellCastTargets::setTradeItemTarget(Player* caster)
 {
     m_itemTargetGUID = ObjectGuid(uint64(TRADE_SLOT_NONTRADED));
@@ -371,6 +377,7 @@ void SpellLog::SendToSet()
 
 Spell::Spell(WorldObject* caster, SpellEntry const* info, uint32 triggeredFlags, ObjectGuid originalCasterGUID, SpellEntry const* triggeredBy) :
     m_partialApplicationMask(0), m_spellScript(SpellScriptMgr::GetSpellScript(info->Id)), m_auraScript(SpellScriptMgr::GetAuraScript(info->Id)),
+    m_effectSkipMask(0),
     m_spellLog(this), m_param1(0), m_param2(0), m_trueCaster(caster)
 {
     MANGOS_ASSERT(caster != nullptr && info != nullptr);
@@ -991,7 +998,7 @@ void Spell::AddUnitTarget(Unit* target, uint8 effectMask, CheckException excepti
         // TBC+: Reflect simply negates the spell
         if (!m_originalCasterGUID.IsUnit())
         {
-            Unit::ProcDamageAndSpell(ProcSystemArguments(nullptr, target, PROC_FLAG_NONE, PROC_FLAG_TAKE_HARMFUL_SPELL, PROC_EX_REFLECT, 1, BASE_ATTACK, m_spellInfo));
+            Unit::ProcDamageAndSpell(ProcSystemArguments(nullptr, target, PROC_FLAG_NONE, PROC_FLAG_TAKE_HARMFUL_SPELL, PROC_EX_REFLECT, 1, 0, BASE_ATTACK, m_spellInfo));
             targetInfo.reflectResult = SPELL_MISS_REFLECT;
         }
         else
@@ -1257,7 +1264,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
 
         // Do triggers for unit (reflect triggers passed on hit phase for correct drop charge)
         if (m_canTrigger && missInfo != SPELL_MISS_REFLECT)
-            Unit::ProcDamageAndSpell(ProcSystemArguments(affectiveCaster, unitTarget, affectiveCaster ? procAttacker : uint32(PROC_FLAG_NONE), procVictim, procEx, addhealth, m_attackType, m_spellInfo, this, gain, true));
+            Unit::ProcDamageAndSpell(ProcSystemArguments(affectiveCaster, unitTarget, affectiveCaster ? procAttacker : uint32(PROC_FLAG_NONE), procVictim, procEx, addhealth, 0, m_attackType, m_spellInfo, this, gain, true));
     }
     // Do damage and triggers
     else if (m_damage)
@@ -1323,7 +1330,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
 
         // Do triggers for unit (reflect triggers passed on hit phase for correct drop charge)
         if (m_canTrigger && missInfo != SPELL_MISS_REFLECT)
-            Unit::ProcDamageAndSpell(ProcSystemArguments(affectiveCaster, unitTarget, affectiveCaster ? procAttacker : uint32(PROC_FLAG_NONE), procVictim, procEx, spellDamageInfo.damage, m_attackType, m_spellInfo, this));
+            Unit::ProcDamageAndSpell(ProcSystemArguments(affectiveCaster, unitTarget, affectiveCaster ? procAttacker : uint32(PROC_FLAG_NONE), procVictim, procEx, spellDamageInfo.damage, spellDamageInfo.absorb, m_attackType, m_spellInfo, this));
     }
     // Passive spell hits/misses or active spells only misses (only triggers if proc flags set)
     else if (procAttacker || procVictim)
@@ -1335,7 +1342,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
         // Do triggers for unit (reflect triggers passed on hit phase for correct drop charge)
         if (m_canTrigger && missInfo != SPELL_MISS_REFLECT)
             // traps need to be procced at trap triggerer
-            Unit::ProcDamageAndSpell(ProcSystemArguments(affectiveCaster, procAttacker & PROC_FLAG_ON_TRAP_ACTIVATION ? m_targets.getUnitTarget() : unit, affectiveCaster ? procAttacker : uint32(PROC_FLAG_NONE), procVictim, procEx, 0, m_attackType, m_spellInfo, this));
+            Unit::ProcDamageAndSpell(ProcSystemArguments(affectiveCaster, procAttacker & PROC_FLAG_ON_TRAP_ACTIVATION ? m_targets.getUnitTarget() : unit, affectiveCaster ? procAttacker : uint32(PROC_FLAG_NONE), procVictim, procEx, 0, 0, m_attackType, m_spellInfo, this));
     }
 
     OnAfterHit();
@@ -1555,7 +1562,7 @@ void Spell::DoAllTargetlessEffects(bool dest)
         if (m_caster)
         {
             PrepareMasksForProcSystem(effectMask, procAttacker, procVictim, m_trueCaster, unitTarget);
-            Unit::ProcDamageAndSpell(ProcSystemArguments(m_caster, procAttacker & PROC_FLAG_ON_TRAP_ACTIVATION ? m_targets.getUnitTarget() : nullptr, m_caster ? procAttacker : uint32(PROC_FLAG_NONE), procVictim, procEx, 0, m_attackType, m_spellInfo, this));
+            Unit::ProcDamageAndSpell(ProcSystemArguments(m_caster, procAttacker & PROC_FLAG_ON_TRAP_ACTIVATION ? m_targets.getUnitTarget() : nullptr, m_caster ? procAttacker : uint32(PROC_FLAG_NONE), procVictim, procEx, 0, 0, m_attackType, m_spellInfo, this));
         }
     }
 }
@@ -3436,16 +3443,23 @@ SpellCastResult Spell::cast(bool skipCheck)
             }
         }
 
+        uint32 procAttacker;
+        uint32 procVictim;
+        uint32 procEx = PROC_EX_NONE;
+        PrepareMasksForProcSystem(EFFECT_MASK_ALL, procAttacker, procVictim, m_trueCaster, nullptr);
         // on spell cast end proc,
         // critical hit related part is currently done on hit so proc there,
         // 0 damage since any damage based procs should be on hit
         // 0 victim proc since there is no victim proc dependent on successfull cast for caster
-        Unit::ProcDamageAndSpell(ProcSystemArguments(m_caster, procTarget, PROC_EX_NORMAL_HIT, 0, PROC_EX_CAST_END, 0, m_attackType, m_spellInfo));
+        Unit::ProcDamageAndSpell(ProcSystemArguments(m_caster, procTarget, procAttacker, 0, PROC_EX_CAST_END, 0, 0, m_attackType, m_spellInfo));
     }
     else // Immediate spell, no big deal
     {
-
-        Unit::ProcDamageAndSpell(ProcSystemArguments(m_caster, procTarget, PROC_EX_NORMAL_HIT, 0, PROC_EX_CAST_END, 0, m_attackType, m_spellInfo));
+        uint32 procAttacker;
+        uint32 procVictim;
+        uint32 procEx = PROC_EX_NONE;
+        PrepareMasksForProcSystem(EFFECT_MASK_ALL, procAttacker, procVictim, m_trueCaster, nullptr);
+        Unit::ProcDamageAndSpell(ProcSystemArguments(m_caster, procTarget, procAttacker, 0, PROC_EX_CAST_END, 0, 0, m_attackType, m_spellInfo));
         handle_immediate();
     }
 
@@ -4634,7 +4648,7 @@ void Spell::TakeReagents()
 
         // if getItemTarget is also spell reagent
         if (m_targets.getItemTargetEntry() == itemid)
-            m_targets.setItemTarget(nullptr);
+            m_targets.clearItemPointer();
 
         p_caster->DestroyItemCount(itemid, itemcount, true);
     }
@@ -5180,7 +5194,7 @@ SpellCastResult Spell::CheckCast(bool strict)
                 {
                     if (!pet->IsAlive())
                         return SPELL_FAILED_TARGETS_DEAD;
-                    if (!IsIgnoreLosSpellEffect(m_spellInfo, SpellEffectIndex(i)) && !m_caster->IsWithinLOSInMap(pet, true))
+                    if (!IsIgnoreLosSpellEffect(m_spellInfo, SpellEffectIndex(i), false) && !m_caster->IsWithinLOSInMap(pet, true))
                         return SPELL_FAILED_LINE_OF_SIGHT;
                 }
                 break;
@@ -5284,7 +5298,7 @@ SpellCastResult Spell::CheckCast(bool strict)
 
     uint32 availableEffectMask = 0;
     for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
-        if (m_spellInfo->Effect[i])
+        if (m_spellInfo->Effect[i] && (m_effectSkipMask & (1 << i)) == 0)
             availableEffectMask |= (1 << i);
 
     auto partialApplication = [&](uint32 i) -> SpellCastResult
@@ -5298,8 +5312,13 @@ SpellCastResult Spell::CheckCast(bool strict)
         return SPELL_CAST_OK;
     };
 
+    m_partialApplicationMask |= m_effectSkipMask;
+
     for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
     {
+        if ((m_effectSkipMask & (1 << i)) != 0)
+            continue;
+
         // for effects of spells that have only one target
         switch (m_spellInfo->Effect[i])
         {
@@ -7323,10 +7342,7 @@ bool Spell::CheckTarget(Unit* target, SpellEffectIndex eff, bool targetB, CheckE
                 // all ok by some way or another, skip normal check
                 break;
             default:                                            // normal case
-                bool forceLos = false;
-                if (target != m_trueCaster && target != m_targets.getUnitTarget())
-                    forceLos = m_spellInfo->HasAttribute(SPELL_ATTR_EX5_ALWAYS_AOE_LINE_OF_SIGHT);
-                if (exception != EXCEPTION_MAGNET && (forceLos || !IsIgnoreLosSpellEffect(m_spellInfo, eff)))
+                if (exception != EXCEPTION_MAGNET && !IsIgnoreLosSpellEffect(m_spellInfo, eff, targetB))
                 {
                     float x, y, z;
                     switch (info.los)
@@ -7894,7 +7910,7 @@ bool Spell::IsAuraProcced(Aura* aura)
 void Spell::ClearCastItem()
 {
     if (m_CastItem == m_targets.getItemTarget())
-        m_targets.setItemTarget(nullptr);
+        m_targets.clearItemPointer();
 
     m_CastItem = nullptr;
 }
@@ -8030,10 +8046,10 @@ void Spell::ProcReflectProcs(TargetInfo& targetInfo)
         return;
 
     // Victim reflects, apply reflect procs
-    Unit::ProcDamageAndSpell(ProcSystemArguments(m_caster, target, PROC_FLAG_NONE, PROC_FLAG_TAKE_HARMFUL_SPELL, PROC_EX_REFLECT, 1, BASE_ATTACK, m_spellInfo));
+    Unit::ProcDamageAndSpell(ProcSystemArguments(m_caster, target, PROC_FLAG_NONE, PROC_FLAG_TAKE_HARMFUL_SPELL, PROC_EX_REFLECT, 1, 0, BASE_ATTACK, m_spellInfo));
     if (targetInfo.reflectResult == SPELL_MISS_REFLECT)
         // Apply reflect procs on self
-        Unit::ProcDamageAndSpell(ProcSystemArguments(m_caster, m_caster, PROC_FLAG_NONE, PROC_FLAG_TAKE_HARMFUL_SPELL, PROC_EX_REFLECT, 1, BASE_ATTACK, m_spellInfo));
+        Unit::ProcDamageAndSpell(ProcSystemArguments(m_caster, m_caster, PROC_FLAG_NONE, PROC_FLAG_TAKE_HARMFUL_SPELL, PROC_EX_REFLECT, 1, 0, BASE_ATTACK, m_spellInfo));
 }
 
 void Spell::FilterTargetMap(UnitList& filterUnitList, SpellTargetFilterScheme scheme, uint32 chainTargetCount)
