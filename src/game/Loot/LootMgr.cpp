@@ -62,12 +62,13 @@ class LootTemplate::LootGroup                               // A set of loot def
         bool HasQuestDrop() const;                          // True if group includes at least 1 quest drop entry
         bool HasQuestDropForPlayer(Player const* player) const;
         // The same for active quests of the player
-        void Process(Loot& loot, Player const* lootOwner) const; // Rolls an item from the group (if any) and adds the item to the loot
+        // Rolls an item from the group (if any) and adds the item to the loot
+        void Process(Loot& loot, Player const* lootOwner, LootStore const& store, bool rate) const;
         float RawTotalChance() const;                       // Overall chance for the group (without equal chanced items)
         float TotalChance() const;                          // Overall chance for the group
 
         void Verify(LootStore const& lootstore, uint32 id, uint32 group_id) const;
-        void CheckLootRefs(LootIdSet* ref_set) const;
+        bool CheckLootRefs(LootIdSet* ref_set, LootIdSet& prevRefs);
     private:
         LootStoreItemList ExplicitlyChanced;                // Entries with chances defined in DB
         LootStoreItemList EqualChanced;                     // Zero chances - every entry takes the same chance
@@ -90,6 +91,56 @@ void LootStore::Verify() const
     for (const auto& m_LootTemplate : m_LootTemplates)
         m_LootTemplate.second->Verify(*this, m_LootTemplate.first);
 }
+
+// check if that loot template does not contain a ref to itself (should be called by CheckLootRefs())
+bool IsValidReference(LootStoreItem& lsi, LootIdSet* refSet, LootIdSet& prevRefs)
+{
+    if (lsi.mincountOrRef < 0)
+    {
+        auto lootRef = LootTemplates_Reference.GetLootFor(-lsi.mincountOrRef);
+        if (!lootRef)
+        {
+            LootTemplates_Reference.ReportNotExistedId(-lsi.mincountOrRef);
+            return false;
+        }
+        else
+        {
+            auto insSuccess = prevRefs.insert(-lsi.mincountOrRef);
+            if (!insSuccess.second)
+            {
+                std::string refsList = "";
+                for (auto id : prevRefs)
+                    refsList += std::to_string(id) + " > ";
+                refsList += std::to_string(-lsi.mincountOrRef) + "!";
+                sLog.outErrorDb("Critical: Table '%s' reference %d (%s) is pointing to itself. Pathway: %s",
+                    LootTemplates_Reference.GetName(), -lsi.mincountOrRef, LootTemplates_Reference.GetEntryName(), refsList.c_str());
+
+                // we can set it as used anyway
+                if (refSet)
+                    refSet->erase(-lsi.mincountOrRef);
+
+                // set it to 0 so it will be ignored from now
+                lsi.mincountOrRef = 0;
+                return false;
+            }
+            else
+            {
+                // recursive call
+                bool success = const_cast<LootTemplate*>(lootRef)->CheckLootRefs(refSet, prevRefs);
+                prevRefs.erase(-lsi.mincountOrRef); // we can now remove this from the callee list
+                if (success)
+                {
+                    // we can set it as used
+                    if (refSet)
+                        refSet->erase(-lsi.mincountOrRef);
+                }
+                else
+                    return false;
+            }
+        }
+    }
+    return true;
+};
 
 // Loads a *_loot_template DB table into loot store
 // All checks of the loaded template are called from here, no error reports at loot generation required
@@ -253,10 +304,22 @@ void LootStore::LoadAndCheckReferenceNames()
     }
 }
 
-void LootStore::CheckLootRefs(LootIdSet* ref_set) const
+bool LootStore::CheckLootRefs(LootIdSet* ref_set /*= nullptr*/)
 {
-    for (const auto& m_LootTemplate : m_LootTemplates)
-        m_LootTemplate.second->CheckLootRefs(ref_set);
+    LootIdSet prevRefs;
+    bool noIssue = true;
+    for (const auto& lTpl : m_LootTemplates)
+    {
+        prevRefs.clear();
+        if (!lTpl.second->CheckLootRefs(ref_set, prevRefs))
+        {
+            noIssue = false;
+
+            sLog.outErrorDb("Critical error found in '%s' for %s %d!", GetName(), GetEntryName(), lTpl.first);
+        }
+    }
+
+    return noIssue;
 }
 
 void LootStore::ReportUnusedIds(LootIdSet const& ids_set) const
@@ -348,7 +411,7 @@ bool LootStoreItem::IsValid(LootStore const& store, uint32 entry) const
             sLog.outErrorDb("Table '%s' entry %d item %d: negative chance is given for a reference, skipped", store.GetName(), entry, itemid);
             return false;
         }
-        if (chance == 0)                               // no chance for the reference
+        if (chance == 0 && group == 0)                      // no chance for the reference
         {
             sLog.outErrorDb("Table '%s' entry %d item %d: zero chance is given for a reference, reference will never be used, skipped", store.GetName(), entry, itemid);
             return false;
@@ -2410,10 +2473,10 @@ LootStoreItem const* LootTemplate::LootGroup::Roll(Loot const& loot, Player cons
 // True if group includes at least 1 quest drop entry
 bool LootTemplate::LootGroup::HasQuestDrop() const
 {
-    for (auto i : ExplicitlyChanced)
+    for (auto const& i : ExplicitlyChanced)
         if (i.needs_quest)
             return true;
-    for (auto i : EqualChanced)
+    for (auto const& i : EqualChanced)
         if (i.needs_quest)
             return true;
     return false;
@@ -2422,21 +2485,35 @@ bool LootTemplate::LootGroup::HasQuestDrop() const
 // True if group includes at least 1 quest drop entry for active quests of the player
 bool LootTemplate::LootGroup::HasQuestDropForPlayer(Player const* player) const
 {
-    for (auto i : ExplicitlyChanced)
+    for (auto const& i : ExplicitlyChanced)
         if (player->HasQuestForItem(i.itemid))
             return true;
-    for (auto i : EqualChanced)
+    for (auto const& i : EqualChanced)
         if (player->HasQuestForItem(i.itemid))
             return true;
     return false;
 }
 
 // Rolls an item from the group (if any takes its chance) and adds the item to the loot
-void LootTemplate::LootGroup::Process(Loot& loot, Player const* lootOwner) const
+void LootTemplate::LootGroup::Process(Loot& loot, Player const* lootOwner, LootStore const& store, bool rate) const
 {
     LootStoreItem const* item = Roll(loot, lootOwner);
     if (item != nullptr)
-        loot.AddItem(*item);
+    {
+        if (item->mincountOrRef > 0)
+            loot.AddItem(*item);
+        else
+        {
+            // we should continue and get next loot reference to process this loot list
+            LootTemplate const* lRef = LootTemplates_Reference.GetLootFor(-item->mincountOrRef);
+
+            if (lRef)
+            {
+                for (uint32 loop = 0; loop < item->maxcount; ++loop)
+                    lRef->Process(loot, lootOwner, store, rate);
+            }
+        }
+    }
 }
 
 // Overall chance for the group without equal chanced items
@@ -2444,7 +2521,7 @@ float LootTemplate::LootGroup::RawTotalChance() const
 {
     float result = 0;
 
-    for (auto i : ExplicitlyChanced)
+    for (auto const& i : ExplicitlyChanced)
         if (!i.needs_quest)
             result += i.chance;
 
@@ -2476,29 +2553,22 @@ void LootTemplate::LootGroup::Verify(LootStore const& lootstore, uint32 id, uint
     }
 }
 
-void LootTemplate::LootGroup::CheckLootRefs(LootIdSet* ref_set) const
+// Will try to find invalid reference and looped reference
+// If loop is detected (Reference call itself) the reference will be set to invalid one
+bool LootTemplate::LootGroup::CheckLootRefs(LootIdSet* ref_set, LootIdSet& prevRefs)
 {
-    for (auto ieItr : ExplicitlyChanced)
+    for (auto& lsi : ExplicitlyChanced)
     {
-        if (ieItr.mincountOrRef < 0)
-        {
-            if (!LootTemplates_Reference.GetLootFor(-ieItr.mincountOrRef))
-                LootTemplates_Reference.ReportNotExistedId(-ieItr.mincountOrRef);
-            else if (ref_set)
-                ref_set->erase(-ieItr.mincountOrRef);
-        }
+        if (!IsValidReference(lsi, ref_set, prevRefs))
+            return false;
     }
 
-    for (auto ieItr : EqualChanced)
+    for (auto& lsi : EqualChanced)
     {
-        if (ieItr.mincountOrRef < 0)
-        {
-            if (!LootTemplates_Reference.GetLootFor(-ieItr.mincountOrRef))
-                LootTemplates_Reference.ReportNotExistedId(-ieItr.mincountOrRef);
-            else if (ref_set)
-                ref_set->erase(-ieItr.mincountOrRef);
-        }
+        if (!IsValidReference(lsi, ref_set, prevRefs))
+            return false;
     }
+    return true;
 }
 
 //
@@ -2508,7 +2578,7 @@ void LootTemplate::LootGroup::CheckLootRefs(LootIdSet* ref_set) const
 // Adds an entry to the group (at loading stage)
 void LootTemplate::AddEntry(LootStoreItem& item)
 {
-    if (item.group > 0 && item.mincountOrRef > 0)           // Group
+    if (item.group > 0)           // Group
     {
         if (item.group >= Groups.size())
             Groups.resize(item.group);                      // Adds new group the the loot template if needed
@@ -2526,12 +2596,12 @@ void LootTemplate::Process(Loot& loot, Player const* lootOwner, LootStore const&
         if (groupId > Groups.size())
             return;                                         // Error message already printed at loading stage
 
-        Groups[groupId - 1].Process(loot, lootOwner);
+        Groups[groupId - 1].Process(loot, lootOwner, store, rate);
         return;
     }
 
     // Rolling non-grouped items
-    for (auto Entrie : Entries)
+    for (auto const& Entrie : Entries)
     {
         // Check condition
         if (Entrie.conditionId && lootOwner && !PlayerOrGroupFulfilsCondition(loot, lootOwner, Entrie.conditionId))
@@ -2555,8 +2625,8 @@ void LootTemplate::Process(Loot& loot, Player const* lootOwner, LootStore const&
     }
 
     // Now processing groups
-    for (const auto& Group : Groups)
-        Group.Process(loot, lootOwner);
+    for (auto const& Group : Groups)
+        Group.Process(loot, lootOwner, store, rate);
 }
 
 // True if template includes at least 1 quest drop entry
@@ -2569,7 +2639,7 @@ bool LootTemplate::HasQuestDrop(LootTemplateMap const& store, uint8 groupId) con
         return Groups[groupId - 1].HasQuestDrop();
     }
 
-    for (auto Entrie : Entries)
+    for (auto const& Entrie : Entries)
     {
         if (Entrie.mincountOrRef < 0)                           // References
         {
@@ -2584,7 +2654,7 @@ bool LootTemplate::HasQuestDrop(LootTemplateMap const& store, uint8 groupId) con
     }
 
     // Now processing groups
-    for (const auto& Group : Groups)
+    for (auto const& Group : Groups)
         if (Group.HasQuestDrop())
             return true;
 
@@ -2602,7 +2672,7 @@ bool LootTemplate::HasQuestDropForPlayer(LootTemplateMap const& store, Player co
     }
 
     // Checking non-grouped entries
-    for (auto Entrie : Entries)
+    for (auto const& Entrie : Entries)
     {
         if (Entrie.mincountOrRef < 0)                           // References processing
         {
@@ -2617,7 +2687,7 @@ bool LootTemplate::HasQuestDropForPlayer(LootTemplateMap const& store, Player co
     }
 
     // Now checking groups
-    for (const auto& Group : Groups)
+    for (auto const& Group : Groups)
         if (Group.HasQuestDropForPlayer(player))
             return true;
 
@@ -2650,21 +2720,23 @@ void LootTemplate::Verify(LootStore const& lootstore, uint32 id) const
     // TODO: References validity checks
 }
 
-void LootTemplate::CheckLootRefs(LootIdSet* ref_set) const
+// Will try to find invalid reference and looped reference
+// If loop is detected (Reference call itself) the reference will be set to invalid one
+bool LootTemplate::CheckLootRefs(LootIdSet* ref_set, LootIdSet& prevRefs)
 {
-    for (auto Entrie : Entries)
+    for (auto& Entrie : Entries)
     {
-        if (Entrie.mincountOrRef < 0)
-        {
-            if (!LootTemplates_Reference.GetLootFor(-Entrie.mincountOrRef))
-                LootTemplates_Reference.ReportNotExistedId(-Entrie.mincountOrRef);
-            else if (ref_set)
-                ref_set->erase(-Entrie.mincountOrRef);
-        }
+        if (!IsValidReference(Entrie, ref_set, prevRefs))
+            return false;
     }
 
-    for (const auto& Group : Groups)
-        Group.CheckLootRefs(ref_set);
+    for (auto& Group : Groups)
+    {
+        if (!Group.CheckLootRefs(ref_set, prevRefs))
+            return false;
+    }
+
+    return true;
 }
 
 void LoadLootTemplates_Creature()

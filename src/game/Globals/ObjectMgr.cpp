@@ -144,7 +144,9 @@ ObjectMgr::ObjectMgr() :
     m_FirstTemporaryGameObjectGuid(1),
     m_unitConditionMgr(std::make_unique<UnitConditionMgr>()),
     m_worldStateExpressionMgr(std::make_unique<WorldStateExpressionMgr>()),
-    m_combatConditionMgr(std::make_unique<CombatConditionMgr>(*m_unitConditionMgr, *m_worldStateExpressionMgr))
+    m_combatConditionMgr(std::make_unique<CombatConditionMgr>(*m_unitConditionMgr, *m_worldStateExpressionMgr)),
+    m_maxGoDbGuid(0),
+    m_maxCreatureDbGuid(0)
 {
 }
 
@@ -985,6 +987,26 @@ std::vector<uint32>* ObjectMgr::GetGameObjectDynGuidForMap(uint32 mapId)
     return &(*itr).second;
 }
 
+void ObjectMgr::AddDynGuidForMap(uint32 mapId, std::pair<std::vector<uint32>, std::vector<uint32>> const& dbGuids)
+{
+    auto& data = m_dynguidCreatureDbGuids[mapId];
+    for (uint32 creature : dbGuids.first)
+        data.push_back(creature);
+    auto& goData = m_dynguidGameobjectDbGuids[mapId];
+    for (uint32 go : dbGuids.second)
+        goData.push_back(go);
+}
+
+void ObjectMgr::RemoveDynGuidForMap(uint32 mapId, std::pair<std::vector<uint32>, std::vector<uint32>> const& dbGuids)
+{
+    auto& data = m_dynguidCreatureDbGuids[mapId];
+    for (uint32 creature : dbGuids.first)
+        data.erase(std::remove(data.begin(), data.end(), creature), data.end());
+    auto& goData = m_dynguidGameobjectDbGuids[mapId];
+    for (uint32 go : dbGuids.second)
+        goData.erase(std::remove(goData.begin(), goData.end(), go), goData.end());
+}
+
 void ObjectMgr::LoadCreatureImmunities()
 {
     uint32 count = 0;
@@ -1464,6 +1486,8 @@ void ObjectMgr::LoadSpawnGroups()
             {
                 CreatureData const* data = GetCreatureData(guidData.DbGuid);
                 RemoveCreatureFromGrid(guidData.DbGuid, data);
+                auto& creatureDynguidsForMap = m_dynguidCreatureDbGuids[data->mapid];
+                creatureDynguidsForMap.erase(std::remove(creatureDynguidsForMap.begin(), creatureDynguidsForMap.end(), guidData.DbGuid), creatureDynguidsForMap.end());
                 newContainer->spawnGroupByGuidMap.emplace(std::make_pair(guidData.DbGuid, uint32(TYPEID_UNIT)), &entry);
                 if (sWorld.getConfig(CONFIG_BOOL_AUTOLOAD_ACTIVE))
                 {
@@ -1490,6 +1514,8 @@ void ObjectMgr::LoadSpawnGroups()
             {
                 GameObjectData const* data = GetGOData(guidData.DbGuid);
                 RemoveGameobjectFromGrid(guidData.DbGuid, data);
+                auto& goDynguidsForMap = m_dynguidGameobjectDbGuids[data->mapid];
+                goDynguidsForMap.erase(std::remove(goDynguidsForMap.begin(), goDynguidsForMap.end(), guidData.DbGuid), goDynguidsForMap.end());
                 newContainer->spawnGroupByGuidMap.emplace(std::make_pair(guidData.DbGuid, uint32(TYPEID_GAMEOBJECT)), &entry);
                 if (sWorld.getConfig(CONFIG_BOOL_AUTOLOAD_ACTIVE))
                 {
@@ -2087,6 +2113,10 @@ void ObjectMgr::LoadCreatures()
         data.spawnTemplate      = GetCreatureSpawnTemplate(0);
         uint32 spawnDataEntry   = fields[15].GetUInt32();
 
+
+        if (m_maxCreatureDbGuid < guid)
+            m_maxCreatureDbGuid = guid;
+
         MapEntry const* mapEntry = sMapStore.LookupEntry(data.mapid);
         if (!mapEntry)
         {
@@ -2162,7 +2192,7 @@ void ObjectMgr::LoadCreatures()
         else
             data.OriginalZoneId = 0;
 
-        if (dynGuid)
+        if (dynGuid && !data.gameEvent)
         {
             m_dynguidCreatureDbGuids[data.mapid].push_back(guid);
         }
@@ -2304,6 +2334,9 @@ void ObjectMgr::LoadGameObjects()
         data.animprogress     = GO_ANIMPROGRESS_DEFAULT;
         data.goState          = -1;
 
+        if (m_maxGoDbGuid < guid)
+            m_maxGoDbGuid = guid;
+
         MapEntry const* mapEntry = sMapStore.LookupEntry(data.mapid);
         if (!mapEntry)
         {
@@ -2378,7 +2411,7 @@ void ObjectMgr::LoadGameObjects()
         else
             data.OriginalZoneId = 0;
 
-        if (dynGuid)
+        if (dynGuid && !data.gameEvent)
         {
             m_dynguidGameobjectDbGuids[data.mapid].push_back(guid);
         }

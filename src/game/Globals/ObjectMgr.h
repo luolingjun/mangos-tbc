@@ -1234,6 +1234,13 @@ class ObjectMgr
 
         std::vector<uint32>* GetCreatureDynGuidForMap(uint32 mapId);
         std::vector<uint32>* GetGameObjectDynGuidForMap(uint32 mapId);
+
+        // these must be called from world thread
+        void AddDynGuidForMap(uint32 mapId, std::pair<std::vector<uint32>, std::vector<uint32>> const& dbGuids);
+        void RemoveDynGuidForMap(uint32 mapId, std::pair<std::vector<uint32>, std::vector<uint32>> const& dbGuids);
+
+        uint32 GetMaxGoDbGuid() const { return m_maxGoDbGuid; }
+        uint32 GetMaxCreatureDbGuid() const { return m_maxCreatureDbGuid; }
     protected:
 
         // current locale settings
@@ -1408,6 +1415,9 @@ class ObjectMgr
 
         std::map<uint32, std::vector<uint32>> m_dynguidCreatureDbGuids;
         std::map<uint32, std::vector<uint32>> m_dynguidGameobjectDbGuids;
+
+        uint32 m_maxGoDbGuid;
+        uint32 m_maxCreatureDbGuid;
 };
 
 #define sObjectMgr MaNGOS::Singleton<ObjectMgr>::Instance()
