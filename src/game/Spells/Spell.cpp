@@ -3101,7 +3101,7 @@ SpellCastResult Spell::SpellStart(SpellCastTargets const* targets, Aura* trigger
     SpellEvent* Event = new SpellEvent(this);
     m_trueCaster->m_events.AddEvent(Event, m_trueCaster->m_events.CalculateTime(1));
 
-    if (!m_trueCaster->IsGameObject()) // gameobjects dont have a sense of already casting a spell
+    if (m_trueCaster->IsUnit()) // gameobjects dont have a sense of already casting a spell
     {
         // Prevent casting at cast another spell (ServerSide check)
         if (m_caster->IsNonMeleeSpellCasted(false, true, true) && m_cast_count && !m_ignoreConcurrentCasts)
@@ -4267,7 +4267,7 @@ void Spell::WriteSpellGoTargets(WorldPacket& data)
         }
         else
         {
-            if (IsChanneledSpell(m_spellInfo) && (ihit.missCondition == SPELL_MISS_RESIST || ihit.missCondition == SPELL_MISS_REFLECT))
+            if (IsChanneledSpell(m_spellInfo) && (ihit.missCondition == SPELL_MISS_RESIST || ihit.missCondition == SPELL_MISS_REFLECT) && ihit.targetGUID == m_targets.getUnitTargetGuid())
             {
                 m_duration = 0;                              // cancel aura to avoid visual effect continue
                 ihit.effectDuration = 0;

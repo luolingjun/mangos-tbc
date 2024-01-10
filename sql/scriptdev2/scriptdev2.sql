@@ -3468,14 +3468,6 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadc
 ('-1532016','Oh, I''ve gone and made a mess...','9315','1','0','0','15086','moroes SAY_KILL_3'),
 ('-1532017','How terribly clumsy of me.','9213','1','0','0','15022','moroes SAY_DEATH'),
 
-('-1532018','Your behavior will not be tolerated.','9204','1','0','0','15079','maiden SAY_AGGRO'),
-('-1532019','Ah ah ah...','9207','1','0','0','15082','maiden SAY_SLAY1'),
-('-1532020','This is for the best.','9312','1','0','0','15084','maiden SAY_SLAY2'),
-('-1532021','Impure thoughts lead to profane actions.','9311','1','0','0','15083','maiden SAY_SLAY3'),
-('-1532022','Cast out your corrupt thoughts.','9313','1','0','0','15080','maiden SAY_REPENTANCE1'),
-('-1532023','Your impurity must be cleansed.','9208','1','0','0','13396','maiden SAY_REPENTANCE2'),
-('-1532024','Death comes. Will your conscience be clear?','9206','1','0','0','15081','maiden SAY_DEATH'),
-
 ('-1532025','Oh at last, at last I can go home!','9190','1','0','0','15068','dorothee SAY_DOROTHEE_DEATH'),
 ('-1532026','Don''t let them hurt us Tito! Oh, you won''t, will you?','9191','1','0','0','15066','dorothee SAY_DOROTHEE_SUMMON'),
 ('-1532027','Tito! Oh Tito, no!','9192','1','0','0','15069','dorothee SAY_DOROTHEE_TITO_DEATH'),
@@ -4650,7 +4642,11 @@ INSERT INTO gossip_texts (entry,content_default,comment) VALUES
 (-3000109,'I am ready, Oronok. Let us destroy Cyrukh and free the elements!','oronok torn-heart GOSSIP_ITEM_FIGHT'),
 (-3000110,'Why... yes, of course. I''ve something to show you right inside this building, Mr. Anvilward.','prospector anvilward GOSSIP_ITEM_SHOW'),
 (-3000111,'I am ready, Anchorite. Let us begin the exorcism.','anchorite barada GOSSIP_ITEM_EXORCISM'),
-(-3000112,'Turn the key to start the machine.','threshwackonator  GOSSIP_ITEM_TURN_KEY');
+(-3000112,'Turn the key to start the machine.','threshwackonator  GOSSIP_ITEM_TURN_KEY'),
+(-3000120,'Pardon the intrusion, Lady Prestor, but Highlord Bolvar suggested that I seek your advice.','npc_lady_katrana_prestor GOSSIP_ITEM_KAT_1'),
+(-3000121,'My apologies, Lady Prestor.','npc_lady_katrana_prestor GOSSIP_ITEM_KAT_2'),
+(-3000122,'Begging your pardon','npc_lady_katrana_prestor GOSSIP_ITEM_KAT_3'),
+(-3000122,'Thank you for your time','npc_lady_katrana_prestor GOSSIP_ITEM_KAT_4');
 
 -- -3 033 000 SHADOWFANG KEEP
 INSERT INTO gossip_texts (entry,content_default,comment) VALUES
