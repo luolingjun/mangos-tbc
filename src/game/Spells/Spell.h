@@ -776,12 +776,14 @@ class Spell
         uint32 GetDamage() { return damage; }
         void SetDamage(uint32 newDamage) { damage = newDamage; }
         SpellSchoolMask GetSchoolMask() { return m_spellSchoolMask; }
+        void SetGuaranteedCrit() { m_guaranteedCrit = true; }
         // OnInit use only
         void SetEffectSkipMask(uint32 mask) { m_effectSkipMask = mask; }
         // OnHit use only
-        uint32 GetTotalTargetDamage() { return m_damage; }
-        uint32 GetTotalTargetAbsorb() { return m_absorb; }
+        uint32 GetTotalTargetDamage() const { return m_damage; }
+        uint32 GetTotalTargetAbsorb() const { return m_absorb; }
         void SetTotalTargetValueModifier(float modifier);
+        int32 GetDamageForEffect(SpellEffectIndex effIdx) const { return m_damagePerEffect[effIdx]; }
         // script initialization hook only setters - use only if dynamic - else use appropriate helper
         void SetMaxAffectedTargets(uint32 newValue) { m_affectedTargetCount = newValue; }
         void SetJumpRadius(float newValue) { m_jumpRadius = newValue; }
@@ -809,6 +811,7 @@ class Spell
         void SetOverridenSpeed(float newSpeed);
         void SetIgnoreRoot(bool state) { m_ignoreRoot = state; }
         void SetDamageDoneModifier(float mod, SpellEffectIndex effIdx);
+        void SetUsableWhileStunned(bool state) { m_usableWhileStunned = state; }
     protected:
         void SendLoot(ObjectGuid guid, LootType loottype, LockType lockType);
         bool IgnoreItemRequirements() const;                // some item use spells have unexpected reagent data
@@ -874,6 +877,8 @@ class Spell
         int32 m_healing;                                    // Healing in effects count here
         int32 m_healingPerEffect[MAX_EFFECT_INDEX];
         int32 m_healthLeech;                                // Health leech in effects for all targets count here
+        bool m_guaranteedCrit;                              // Used in effect handlers to guarantee crit
+        bool m_usableWhileStunned;
 
         //******************************************
         // Spell trigger system
