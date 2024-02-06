@@ -614,6 +614,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 12627:         // Disease Cloud
         case 12787:         // Thrash
         case 12898:         // Smoke Aura Visual
+        case 13260:         // Pet Bomb Passive
         case 13299:         // Poison Proc
         case 13616:         // Wracking Pains Proc
         case 13767:         // Hate to Zero (Hate to Zero)
@@ -695,6 +696,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 32942:         // Phasing Invisibility
         case 33460:         // Inhibit Magic
         case 33483:         // Mana Tap
+        case 33839:         // Vir'aani Concentration
         case 33900:         // Shroud of Death
         case 33908:         // Burning Spikes
         case 34343:         // Thorns

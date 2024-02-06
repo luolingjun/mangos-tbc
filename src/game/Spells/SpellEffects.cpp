@@ -557,18 +557,6 @@ void Spell::EffectSchoolDMG(SpellEffectIndex eff_idx)
                     else
                         damage *= stacks;
                 }
-                switch (m_spellInfo->Id)
-                {
-                    case 20467: // Judgement of Command
-                    case 20963:
-                    case 20964:
-                    case 20965:
-                    case 20966:
-                    case 27171:
-                        if (!unitTarget->IsStunned())
-                            damage /= 2;
-                        break;
-                }
                 break;
             }
         }
@@ -1177,13 +1165,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                 {
                     if (m_CastItem)
                         m_caster->CastSpell(m_caster, 13166, TRIGGERED_OLD_TRIGGERED, m_CastItem);
-
-                    return;
-                }
-                case 23134:                                 // Goblin Bomb Dispenser
-                {
-                    if (m_CastItem)
-                        m_caster->CastSpell(m_caster, 13258, TRIGGERED_OLD_TRIGGERED, m_CastItem);
 
                     return;
                 }

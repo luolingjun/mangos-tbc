@@ -1138,6 +1138,79 @@ void Map::UnloadAll(bool pForce)
     }
 }
 
+// This is not retail like
+// Get xp rate for given type
+float Map::GetXPModRate(RateModType type) const
+{
+    float expMod = 1.0f;
+    switch (type)
+    {
+        case RateModType::QUEST:
+        {
+            switch (GetExpansion())
+            {
+                case 0:
+                    expMod = sWorld.getConfig(CONFIG_FLOAT_RATE_XP_QUEST_VANILLA);
+                    break;
+                default:
+                    expMod = sWorld.getConfig(CONFIG_FLOAT_RATE_XP_QUEST_BC);
+                    break;
+            }
+            expMod *= sWorld.getConfig(CONFIG_FLOAT_RATE_XP_QUEST);
+            break;
+
+        }
+        
+        case RateModType::KILL:
+        {
+            switch (GetExpansion())
+            {
+                case 0:
+                    expMod = sWorld.getConfig(CONFIG_FLOAT_RATE_XP_KILL_VANILLA);
+                    break;
+                default:
+                    expMod = sWorld.getConfig(CONFIG_FLOAT_RATE_XP_KILL_BC);
+                    break;
+            }
+            expMod *= sWorld.getConfig(CONFIG_FLOAT_RATE_XP_KILL);
+            break;
+        }
+
+        case RateModType::EXPLORE:
+        {
+            switch (GetExpansion())
+            {
+                case 0:
+                    expMod = sWorld.getConfig(CONFIG_FLOAT_RATE_XP_EXPLORE_VANILLA);
+                    break;
+                default:
+                case 1:
+                    expMod = sWorld.getConfig(CONFIG_FLOAT_RATE_XP_EXPLORE_BC);
+                    break;
+            }
+            expMod *= sWorld.getConfig(CONFIG_FLOAT_RATE_XP_EXPLORE);
+            break;
+        }
+
+        case RateModType::PETKILL:
+        {
+            switch (GetExpansion())
+            {
+                case 0:
+                    expMod = sWorld.getConfig(CONFIG_FLOAT_RATE_PET_XP_KILL_VANILLA);
+                    break;
+                default:
+                    expMod = sWorld.getConfig(CONFIG_FLOAT_RATE_PET_XP_KILL_BC);
+                    break;
+            }
+            expMod *= sWorld.getConfig(CONFIG_FLOAT_RATE_PET_XP_KILL);
+            break;
+        }
+    }
+
+    return expMod;
+}
+
 uint32 Map::GetMaxPlayers() const
 {
     InstanceTemplate const* iTemplate = ObjectMgr::GetInstanceTemplate(GetId());
