@@ -208,6 +208,12 @@ void WorldSession::HandleOpenItemOpcode(WorldPacket& recvPacket)
         return;
     }
 
+    if (proto->RequiredLevel > pUser->GetLevel())
+    {
+        pUser->SendEquipError(EQUIP_ERR_LOOT_CANT_LOOT_THAT_NOW, pItem, nullptr);
+        return;
+    }
+
     // locked item
     uint32 lockId = proto->LockID;
     if (lockId && !pItem->HasFlag(ITEM_FIELD_FLAGS, ITEM_DYNFLAG_UNLOCKED))
@@ -286,6 +292,12 @@ void WorldSession::HandleGameObjectUseOpcode(WorldPacket& recv_data)
 
     if (!obj->IsAtInteractDistance(_player))
         return;
+
+    if (obj->GetSpellForLock(_player))
+    {
+        sLog.outError("HandleGameObjectUseOpcode: CMSG_GAMEOBJ_USE for spell locked object (Entry %u), didn't expect this to happen.", obj->GetEntry());
+        return;
+    }
 
     // Additional check preventing exploits (ie loot despawned chests)
     if (!obj->IsSpawned())
