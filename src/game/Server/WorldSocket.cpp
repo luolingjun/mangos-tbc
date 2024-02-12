@@ -185,6 +185,7 @@ bool WorldSocket::ProcessIncomingData()
 
         self->Read(reinterpret_cast<char*>(packetBuffer->data()), packetBuffer->size(), [self, packetBuffer, opcode = opcode](const boost::system::error_code& error, std::size_t read) -> void
         {
+            if (error) return;
             std::unique_ptr<WorldPacket> pct = std::make_unique<WorldPacket>(opcode, packetBuffer->size());
             pct->append(*packetBuffer.get());
             if (sPacketLog->CanLogPacket() && self->IsLoggingPackets())
@@ -202,7 +203,10 @@ bool WorldSocket::ProcessIncomingData()
             {
                 auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(Clock::now());
                 if (now < self->m_lastPacket[opcode]) // packet on cooldown
+                {
+                    self->ProcessIncomingData();
                     return;
+                }
                 else // start cooldown and allow execution
                     self->m_lastPacket[opcode] = now + std::chrono::milliseconds(WorldSocket::m_packetCooldowns[opcode]);
             }
