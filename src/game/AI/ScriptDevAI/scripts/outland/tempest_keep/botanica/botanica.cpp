@@ -19,20 +19,87 @@
 
 enum BotanicaActions
 {
+    BOTANICA_TRIGGER_BLOODWARDER_PROTECTOR_01,
+    BOTANICA_TRIGGER_BLOODWARDER_PROTECTOR_02,
+    BOTANICA_TRIGGER_BLOODWARDER_PROTECTOR_03,
+    BOTANICA_TRIGGER_BLOODWARDER_PROTECTOR_04,
     BOTANICA_ACTION_MAX,
 };
 
 instance_botanica::instance_botanica(Map* map) : ScriptedInstance(map)
 {
-    /*
-    auto posCheck = [](Unit const* unit) -> bool { return unit->GetPositionY() > 124.5f; };
-    auto successEvent = [&]()
+    // trigger 1 -1.2472258, Y:87.49708, Z:-5.6631246 
+    auto posCheckTrigger01 = [](Unit const* unit) -> bool { return unit->GetPositionY() > 87.147f; };
+    // trigger 2 X: -0.8652489 Y: 142.86328 Z: -5.539602 O: 1.5715766
+    auto posCheckTrigger02 = [](Unit const* unit) -> bool { return unit->GetPositionY() > 142.86f; };
+    // trigger 3 X: -0.39172745 Y: 219.03831 Z: -5.54034 O: 1.5785537
+    auto posCheckTrigger03 = [](Unit const* unit) -> bool { return unit->GetPositionY() > 219.038f; };
+    // trigger 4 X: -8.046078 Y: 288.01355 Z: 0.2993633
+    auto posCheckTrigger04 = [](Unit const* unit) -> bool { return unit->GetPositionX() > -8.046f && unit->GetPositionY() > 288.013f; };
+
+    auto successEvent01 = [&]()
     {
-        // Trigger Legionnaire group 04 and 05
-        instance->GetVariableManager().SetVariable(WORLD_STATE_LEGIONNAIRE_003, 1);
+        auto m_bloodwarderGroup = instance->GetCreatures(THIRD_BLOODWARDER_STRING);
+        if (m_bloodwarderGroup != nullptr)
+        {
+            for (Creature* creature : *m_bloodwarderGroup)
+            {
+                if (!creature->IsAlive())
+                    return;
+
+                creature->GetMotionMaster()->MoveWaypoint();
+            }
+        }
     };
-    AddInstanceEvent(SHH_TRIGGER_LEGIONNAIRE, posCheck, successEvent);
-    */
+
+    auto successEvent02 = [&]()
+    {
+        auto m_bloodwarderGroup = instance->GetCreatures(FOURTH_BLOODWARDER_STRING);
+        if (m_bloodwarderGroup != nullptr)
+        {
+            for (Creature* creature : *m_bloodwarderGroup)
+            {
+                if (!creature->IsAlive())
+                    continue;
+
+                creature->GetMotionMaster()->MoveWaypoint();
+            }
+        }
+    };
+
+    auto successEvent03 = [&]()
+    {
+        auto m_bloodwarderGroup = instance->GetCreatures(FIFTH_BLOODWARDER_STRING);
+        if (m_bloodwarderGroup != nullptr)
+        {
+            for (Creature* creature : *m_bloodwarderGroup)
+            {
+                if (!creature->IsAlive())
+                    continue;
+
+                creature->GetMotionMaster()->MoveWaypoint();
+            }
+        }
+    };
+
+    auto successEvent04 = [&]()
+    {
+        auto m_bloodwarderGroup = instance->GetCreatures(SIX_BLOODWARDER_STRING);
+        if (m_bloodwarderGroup != nullptr)
+        {
+            for (Creature* creature : *m_bloodwarderGroup)
+            {
+                if (!creature->IsAlive())
+                    continue;
+
+                creature->GetMotionMaster()->MoveWaypoint();
+            }
+        }
+    };
+    AddInstanceEvent(BOTANICA_TRIGGER_BLOODWARDER_PROTECTOR_01, posCheckTrigger01, successEvent01);
+    AddInstanceEvent(BOTANICA_TRIGGER_BLOODWARDER_PROTECTOR_02, posCheckTrigger02, successEvent02);
+    AddInstanceEvent(BOTANICA_TRIGGER_BLOODWARDER_PROTECTOR_03, posCheckTrigger03, successEvent03);
+    AddInstanceEvent(BOTANICA_TRIGGER_BLOODWARDER_PROTECTOR_04, posCheckTrigger04, successEvent04);
 }
 
 void instance_botanica::AddInstanceEvent(uint32 id, std::function<bool(Unit const*)> check, std::function<void()> successEvent)
@@ -58,6 +125,21 @@ void instance_botanica::Update(const uint32 diff)
 {
     UpdateTimers(diff);
 }
+// 34799 ArcaneDevastation
+enum Spells
+{
+    SPELL_ARCANE_RESONANCE = 34794,
+};
+
+struct ArcaneDevastation : public SpellScript
+{
+    void OnAfterHit(Spell* spell) const override
+    {
+        Unit* target = spell->m_targets.getUnitTarget();
+        target->RemoveAurasDueToSpell(SPELL_ARCANE_RESONANCE);
+        return;
+    }
+};
 
 void AddSC_instance_botanica()
 {
@@ -65,4 +147,6 @@ void AddSC_instance_botanica()
     pNewScript->Name = "instance_botanica";
     pNewScript->GetInstanceData = &GetNewInstanceScript<instance_botanica>;
     pNewScript->RegisterSelf();
+
+    RegisterSpellScript<ArcaneDevastation>("spell_arcane_devastation");
 }
