@@ -1514,21 +1514,27 @@ void BattleGroundMgr::BuildPvpLogDataPacket(WorldPacket& data, BattleGround* bg)
   Send battleground joined packet
 
   @param    packet
-  @param    result
+  @param    battleground type id
+  @param    battleground group join status
 */
-void BattleGroundMgr::BuildGroupJoinedBattlegroundPacket(WorldPacket& data, BattleGroundTypeId bgTypeId) const
+void BattleGroundMgr::BuildGroupJoinedBattlegroundPacket(WorldPacket& data, BattleGroundTypeId bgTypeId, BattleGroundGroupJoinStatus status) const
 {
-    /*bgTypeId is:
-    0 - Your group has joined a battleground queue, but you are not eligible
-    1 - Your group has joined the queue for AV
-    2 - Your group has joined the queue for WS
-    3 - Your group has joined the queue for AB
-    4 - Your group has joined the queue for NA
-    5 - Your group has joined the queue for BE Arena
-    6 - Your group has joined the queue for All Arenas
-    7 - Your group has joined the queue for EotS*/
     data.Initialize(SMSG_GROUP_JOINED_BATTLEGROUND, 4);
-    data << uint32(bgTypeId);
+    switch (status)
+    {
+        case BG_GROUP_JOIN_STATUS_DESERTERS:    // You cannot join the battleground yet because you or one of your party members is flagged as a Deserter.
+        case BG_GROUP_JOIN_STATUS_NOT_ELIGIBLE: // Your group has joined a battleground queue, but you are not eligible
+        case BG_GROUP_JOIN_STATUS_NOT_IN_TEAM:
+        case BG_GROUP_JOIN_STATUS_TOO_MANY_QUEUES:
+        case BG_GROUP_JOIN_STATUS_CANNOT_QUEUE_FOR_RATED:
+        case BG_GROUP_JOIN_STATUS_QUEUED_FOR_RATED:
+        case BG_GROUP_JOIN_STATUS_TEAM_LEFT_QUEUE:
+            data << int32(status);
+            break;
+        case BG_GROUP_JOIN_STATUS_SUCCESS:      // Your group has joined the queue for [map]
+            data << uint32(bgTypeId);
+            break;
+    }
 }
 
 /**

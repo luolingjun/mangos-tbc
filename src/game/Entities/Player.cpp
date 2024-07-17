@@ -12213,7 +12213,6 @@ void Player::SendNewItem(Item* item, uint32 count, bool received, bool created, 
     if (!item)                                              // prevent crash
         return;
 
-    // last check 2.0.10
     WorldPacket data(SMSG_ITEM_PUSH_RESULT, (8 + 4 + 4 + 4 + 1 + 4 + 4 + 4 + 4 + 4));
     data << GetObjectGuid();                                // player GUID
     data << uint32(received);                               // 0=looted, 1=from npc
@@ -14777,7 +14776,7 @@ void Player::SendQuestConfirmAccept(const Quest* pQuest, Player* pReceiver) cons
     }
 }
 
-void Player::SendPushToPartyResponse(Player* pPlayer, uint32 msg) const
+void Player::SendPushToPartyResponse(Player* pPlayer, QuestShareMessages msg) const
 {
     if (pPlayer)
     {
@@ -15272,7 +15271,10 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
         {
             GameObjectInfo const* transportInfo = sGOStorage.LookupEntry<GameObjectInfo>(data->id);
             if (transportInfo->type == GAMEOBJECT_TYPE_TRANSPORT)
+            {
                 guid = ObjectGuid(HIGHGUID_GAMEOBJECT, data->id, transGUID);
+                m_movementInfo.t_guid = guid;
+            }
         }
         GenericTransport* transport = GetMap()->GetTransport(guid);
         Map* map = GetMap();

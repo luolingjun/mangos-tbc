@@ -143,8 +143,8 @@ void WorldSession::HandleBattlemasterJoinOpcode(WorldPacket& recv_data)
         // check Deserter debuff
         if (!_player->CanJoinToBattleground())
         {
-            WorldPacket data(SMSG_GROUP_JOINED_BATTLEGROUND, 4);
-            data << uint32(0xFFFFFFFE);
+            WorldPacket data;
+            sBattleGroundMgr.BuildGroupJoinedBattlegroundPacket(data, bgTypeId, BG_GROUP_JOIN_STATUS_DESERTERS);
             _player->GetSession()->SendPacket(data);
             return;
         }
@@ -154,7 +154,12 @@ void WorldSession::HandleBattlemasterJoinOpcode(WorldPacket& recv_data)
             return;
         // check if has free queue slots
         if (!_player->HasFreeBattleGroundQueueId())
+        {
+            WorldPacket data;
+            sBattleGroundMgr.BuildGroupJoinedBattlegroundPacket(data, bgTypeId, BG_GROUP_JOIN_STATUS_TOO_MANY_QUEUES);
+            _player->GetSession()->SendPacket(data);
             return;
+        }
     }
     else
     {
@@ -195,7 +200,7 @@ void WorldSession::HandleBattlemasterJoinOpcode(WorldPacket& recv_data)
             WorldPacket data;
             sBattleGroundMgr.BuildBattleGroundStatusPacket(data, bg, queueSlot, STATUS_WAIT_QUEUE, avgTime, 0, queueInfo->arenaType, TEAM_NONE);
             member->GetSession()->SendPacket(data);
-            sBattleGroundMgr.BuildGroupJoinedBattlegroundPacket(data, bgTypeId);
+            sBattleGroundMgr.BuildGroupJoinedBattlegroundPacket(data, bgTypeId, BG_GROUP_JOIN_STATUS_SUCCESS);
             member->GetSession()->SendPacket(data);
             DEBUG_LOG("Battleground: player joined queue for bg queue type %u bg type %u: GUID %u, NAME %s", bgQueueTypeId, bgTypeId, member->GetGUIDLow(), member->GetName());
         }
@@ -417,8 +422,8 @@ void WorldSession::HandleBattlefieldPortOpcode(WorldPacket& recv_data)
         if (!_player->CanJoinToBattleground())
         {
             // send bg command result to show nice message
-            WorldPacket data2(SMSG_GROUP_JOINED_BATTLEGROUND, 4);
-            data2 << uint32(0xFFFFFFFE);
+            WorldPacket data2;
+            sBattleGroundMgr.BuildGroupJoinedBattlegroundPacket(data2, bgTypeId, BG_GROUP_JOIN_STATUS_DESERTERS);
             _player->GetSession()->SendPacket(data2);
             action = 0;
 
@@ -707,7 +712,12 @@ void WorldSession::HandleBattlemasterJoinArena(WorldPacket& recv_data)
             return;
         // check if has free queue slots
         if (!_player->HasFreeBattleGroundQueueId())
+        {
+            WorldPacket data;
+            sBattleGroundMgr.BuildGroupJoinedBattlegroundPacket(data, bgTypeId, BG_GROUP_JOIN_STATUS_TOO_MANY_QUEUES);
+            _player->GetSession()->SendPacket(data);
             return;
+        }
     }
     else
     {
@@ -718,7 +728,27 @@ void WorldSession::HandleBattlemasterJoinArena(WorldPacket& recv_data)
         uint32 err = group->CanJoinBattleGroundQueue(bgTypeId, bgQueueTypeId, arenatype, arenatype, isRated != 0, arenaslot);
         if (err != BG_JOIN_ERR_OK)
         {
-            SendBattleGroundOrArenaJoinError(err);
+            if (err == BG_JOIN_ERR_MIXED_ARENATEAM)
+            {
+                WorldPacket data;
+                sBattleGroundMgr.BuildGroupJoinedBattlegroundPacket(data, bgTypeId, BG_GROUP_JOIN_STATUS_NOT_IN_TEAM);
+                _player->GetSession()->SendPacket(data);
+            }
+            else if (err == BG_JOIN_ERR_ALL_QUEUES_USED)
+            {
+                WorldPacket data;
+                sBattleGroundMgr.BuildGroupJoinedBattlegroundPacket(data, bgTypeId, BG_GROUP_JOIN_STATUS_TOO_MANY_QUEUES);
+                _player->GetSession()->SendPacket(data);
+            }
+            else if (err == BG_JOIN_ERR_GROUP_MEMBER_ALREADY_IN_QUEUE)
+            {
+                WorldPacket data;
+                sBattleGroundMgr.BuildGroupJoinedBattlegroundPacket(data, bgTypeId, BG_GROUP_JOIN_STATUS_CANNOT_QUEUE_FOR_RATED);
+                _player->GetSession()->SendPacket(data);
+            }
+            else
+                SendBattleGroundOrArenaJoinError(err);
+
             return;
         }
     }
@@ -786,7 +816,7 @@ void WorldSession::HandleBattlemasterJoinArena(WorldPacket& recv_data)
             // send status packet (in queue)
             sBattleGroundMgr.BuildBattleGroundStatusPacket(data, bg, queueSlot, STATUS_WAIT_QUEUE, avgTime, 0, arenatype, TEAM_NONE);
             member->GetSession()->SendPacket(data);
-            sBattleGroundMgr.BuildGroupJoinedBattlegroundPacket(data, bgTypeId);
+            sBattleGroundMgr.BuildGroupJoinedBattlegroundPacket(data, bgTypeId, BG_GROUP_JOIN_STATUS_SUCCESS);
             member->GetSession()->SendPacket(data);
             DEBUG_LOG("Battleground: player joined queue for arena as group bg queue type %u bg type %u: GUID %u, NAME %s", bgQueueTypeId, bgTypeId, member->GetGUIDLow(), member->GetName());
         }
