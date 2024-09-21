@@ -195,6 +195,11 @@ SD2ErrorLogFile = "SD2Errors.log"
 #        Disable mmap pathfinding on the listed maps.
 #        List of map ids with delimiter ','
 #
+#    mmap.preload
+#        Enable/Disable preloading on first mapId load - expensive but thread safe - use only for big servers
+#                 1 (enable)
+#        Default: 0 (disable)
+#
 #    PathFinder.OptimizePath
 #        Use or not path finder path optimization (cut calculated points).
 #                 0  (disable)
@@ -261,6 +266,7 @@ vmap.enableIndoorCheck = 1
 DetectPosCollision = 1
 mmap.enabled = 1
 mmap.ignoreMapIds = ""
+mmap.preload = 0
 PathFinder.OptimizePath = 1
 PathFinder.NormalizeZ = 0
 UpdateUptimeInterval = 10
@@ -1602,6 +1608,18 @@ Death.Bones.World = 1
 Death.Bones.BattlegroundOrArena = 1
 Death.Ghost.RunSpeed.World = 1.0
 Death.Ghost.RunSpeed.Battleground = 1.0
+
+###################################################################################################################
+# LFG CONFIG
+#
+#    Lfg.Enabled
+#        Lfg is enabled
+#        Default: 1 (enable)
+#                 0 (disable)
+#
+###################################################################################################################
+
+Lfg.Enabled = 1
 
 ###################################################################################################################
 # BATTLEGROUND CONFIG
