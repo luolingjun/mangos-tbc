@@ -2591,7 +2591,7 @@ void Unit::CalculateDamageAbsorbAndResist(Unit* caster, SpellSchoolMask schoolMa
                 currentAbsorb = maxAbsorb;
 
             int32 manaReduction = int32(currentAbsorb * manaMultiplier);
-            ApplyPowerMod(POWER_MANA, manaReduction, false);
+            ModifyPower(POWER_MANA, -manaReduction);
         }
 
         (*i)->OnManaAbsorb(currentAbsorb);
@@ -3099,12 +3099,6 @@ bool Unit::CanGlance() const
     if (GetTypeId() == TYPEID_PLAYER || HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
         return !GetCharmerGuid().IsCreature();
     return false;
-}
-
-bool Unit::CanDaze() const
-{
-    // Generally, only npcs are able to daze targets in melee
-    return (GetTypeId() == TYPEID_UNIT && !HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED));
 }
 
 void Unit::SetCanDodge(const bool flag)
@@ -5674,6 +5668,7 @@ void Unit::RemoveAura(Aura* Aur, AuraRemoveMode mode)
 
     // Set remove mode
     Aur->SetRemoveMode(mode);
+    Aur->InvalidateScriptRef();
 
     // some ShapeshiftBoosts at remove trigger removing other auras including parent Shapeshift aura
     // remove aura from list before to prevent deleting it before
@@ -8070,6 +8065,22 @@ float Unit::GetPPMProcChance(uint32 WeaponSpeed, float PPM) const
     return WeaponSpeed * PPM / 600.0f;                      // result is chance in percents (probability = Speed_in_sec * (PPM / 60))
 }
 
+bool Unit::MountEntry(uint32 templateEntry, const Aura* aura)
+{
+    CreatureInfo const* ci = ObjectMgr::GetCreatureTemplate(templateEntry);
+    uint32 display_id = Creature::ChooseDisplayId(ci);
+
+    SetMountInfo(ci);
+
+    return Mount(display_id, aura);
+}
+
+bool Unit::UnmountEntry(const Aura* aura)
+{
+    SetMountInfo(nullptr);
+    return Unmount(aura);
+}
+
 bool Unit::Mount(uint32 displayid, const Aura* aura/* = nullptr*/)
 {
     // Custom mount (non-aura such as taxi or command) overwrites aura mounts
@@ -8084,6 +8095,12 @@ bool Unit::Mount(uint32 displayid, const Aura* aura/* = nullptr*/)
 
     if (aura)
         SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT);
+
+    if (GetMountInfo())
+    {
+        SetBaseRunSpeed(1.f); // overriden inside
+        UpdateSpeed(MOVE_RUN, true);
+    }
     return true;
 }
 
@@ -8108,6 +8125,12 @@ bool Unit::Unmount(const Aura* aura/* = nullptr*/)
         WorldPacket data(SMSG_DISMOUNT, 8);
         data << GetPackGUID();
         SendMessageToSet(data, true);
+    }
+
+    if (GetMountInfo())
+    {
+        SetBaseRunSpeed(1.f); // overriden inside
+        UpdateSpeed(MOVE_RUN, true);
     }
 
     return true;
@@ -8757,7 +8780,7 @@ void Unit::UpdateSpeed(UnitMoveType mtype, bool forced, float ratio)
     if (slow)
         speed *= (100.0f + slow) / 100.0f;
 
-    if (GetTypeId() == TYPEID_UNIT)
+    if (IsCreature())
     {
         switch (mtype)
         {
@@ -10652,6 +10675,7 @@ void Unit::UpdateModelData()
         SetFloatValue(UNIT_FIELD_COMBATREACH, GetObjectScale() * modelInfo->combat_reach);
 
         SetBaseWalkSpeed(modelInfo->SpeedWalk);
+        SetModelRunSpeed(modelInfo->SpeedRun);
         SetBaseRunSpeed(modelInfo->SpeedRun, false);
     }
 }
@@ -11367,7 +11391,13 @@ bool Unit::IsAllowedDamageInArea(Unit* attacker, Unit* pVictim)
 
     // can't damage player controlled unit by player controlled unit in sanctuary
     AreaTableEntry const* area = GetAreaEntryByAreaID(pVictim->GetAreaId());
-    return !(area && area->flags & AREA_FLAG_SANCTUARY);
+    if (!area || !(area->flags & AREA_FLAG_SANCTUARY))
+        return true;
+
+    if (pVictim->IsIgnoringSanctuary())
+        return true;
+    else
+        return false;
 }
 
 class UnitVisitObjectsInRangeNotifyEvent : public BasicEvent

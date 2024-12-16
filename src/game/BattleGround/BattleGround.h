@@ -594,7 +594,7 @@ class BattleGround
         // returns the other team index
         static PvpTeamIndex GetOtherTeamIndex(PvpTeamIndex teamIdx) { return teamIdx == TEAM_INDEX_ALLIANCE ? TEAM_INDEX_HORDE : TEAM_INDEX_ALLIANCE; }
 
-        // checke if player is inside battleground
+        // check if player is inside battleground
         bool IsPlayerInBattleGround(ObjectGuid /*playerGuid*/);
 
         // Handle script condition fulfillment
@@ -617,6 +617,10 @@ class BattleGround
 
         uint32 GetPlayerSkinRefLootId() const { return m_playerSkinReflootId; }
         void SetPlayerSkinRefLootId(uint32 reflootId) { m_playerSkinReflootId = reflootId; }
+
+        MaNGOS::unique_weak_ptr<BattleGround> GetWeakPtr() const { return m_weakRef; }
+        void SetWeakPtr(MaNGOS::unique_weak_ptr<BattleGround> weakRef) { m_weakRef = std::move(weakRef); }
+
     protected:
         // this method is called, when BG cannot spawn its own spirit guide, or something is wrong, It correctly ends BattleGround
         void EndNow();
@@ -707,6 +711,8 @@ class BattleGround
         float m_startMaxDist;
 
         uint32 m_playerSkinReflootId;
+
+        MaNGOS::unique_weak_ptr<BattleGround> m_weakRef;
 };
 
 // helper functions for world state list fill

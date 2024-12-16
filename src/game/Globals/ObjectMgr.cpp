@@ -152,9 +152,6 @@ ObjectMgr::ObjectMgr() :
 
 ObjectMgr::~ObjectMgr()
 {
-    for (auto& mQuestTemplate : mQuestTemplates)
-        delete mQuestTemplate.second;
-
     for (auto& i : petInfo)
         delete[] i.second;
 
@@ -201,11 +198,19 @@ ArenaTeam* ObjectMgr::GetArenaTeamById(uint32 arenateamid) const
     return nullptr;
 }
 
+bool ichar_equals(char a, char b)
+{
+    return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+}
+
 ArenaTeam* ObjectMgr::GetArenaTeamByName(const std::string& arenateamname) const
 {
     for (const auto& itr : mArenaTeamMap)
-        if (itr.second->GetName() == arenateamname)
+    {
+        std::string const& teamName = itr.second->GetName();
+        if (std::equal(teamName.begin(), teamName.end(), arenateamname.begin(), arenateamname.end(), ichar_equals))
             return itr.second;
+    }            
 
     return nullptr;
 }
@@ -1250,9 +1255,9 @@ void ObjectMgr::LoadSpawnGroups()
 
             entry.Active = false;
             entry.EnabledByDefault = true;
-            entry.formationEntry = nullptr;
+            entry.Formation = nullptr;
             entry.HasChancedSpawns = false;
-            newContainer->spawnGroupMap.emplace(entry.Id, entry);
+            newContainer->spawnGroupMap.emplace(entry.Id, std::move(entry));
         } while (result->NextRow());
     }
 
@@ -1263,31 +1268,31 @@ void ObjectMgr::LoadSpawnGroups()
         {
             Field* fields = result->Fetch();
 
-            FormationEntrySPtr fEntry = std::make_shared<FormationEntry>();
-            fEntry->GroupId = fields[0].GetUInt32();
+            FormationEntry fEntry;
+            fEntry.GroupId = fields[0].GetUInt32();
             uint32 fType = fields[1].GetUInt32();
-            fEntry->Spread = fields[2].GetFloat();
-            fEntry->Options = fields[3].GetUInt32();
-            fEntry->MovementIdOrWander = fields[4].GetUInt32();
-            fEntry->MovementType = fields[5].GetUInt32();
-            fEntry->Comment = fields[6].GetCppString();
+            fEntry.Spread = fields[2].GetFloat();
+            fEntry.Options = fields[3].GetUInt32();
+            fEntry.MovementIdOrWander = fields[4].GetUInt32();
+            fEntry.MovementType = fields[5].GetUInt32();
+            fEntry.Comment = fields[6].GetCppString();
 
-            auto itr = newContainer->spawnGroupMap.find(fEntry->GroupId);
+            auto itr = newContainer->spawnGroupMap.find(fEntry.GroupId);
             if (itr == newContainer->spawnGroupMap.end())
             {
-                sLog.outErrorDb("LoadSpawnGroups: Invalid group Id:%u found in `spawn_group_formation`. Skipping.", fEntry->GroupId);
+                sLog.outErrorDb("LoadSpawnGroups: Invalid group Id:%u found in `spawn_group_formation`. Skipping.", fEntry.GroupId);
                 continue;
             }
 
             if (fType >= static_cast<uint32>(SPAWN_GROUP_FORMATION_TYPE_COUNT))
             {
-                sLog.outErrorDb("LoadSpawnGroups: Invalid formation type in `spawn_group_formation` ID:%u. Skipping.", fEntry->GroupId);
+                sLog.outErrorDb("LoadSpawnGroups: Invalid formation type in `spawn_group_formation` ID:%u. Skipping.", fEntry.GroupId);
                 continue;
             }
 
-            if (fEntry->MovementType >= static_cast<uint32>(MAX_DB_MOTION_TYPE))
+            if (fEntry.MovementType >= static_cast<uint32>(MAX_DB_MOTION_TYPE))
             {
-                sLog.outErrorDb("LoadSpawnGroups: Invalid movement type in `spawn_group_formation` ID:%u. Skipping.", fEntry->GroupId);
+                sLog.outErrorDb("LoadSpawnGroups: Invalid movement type in `spawn_group_formation` ID:%u. Skipping.", fEntry.GroupId);
                 continue;
             }
 
@@ -1302,15 +1307,15 @@ void ObjectMgr::LoadSpawnGroups()
 //                 }
 //             }
 
-            fEntry->Type = static_cast<SpawnGroupFormationType>(fType);
+            fEntry.Type = static_cast<SpawnGroupFormationType>(fType);
 
-            if (fEntry->Spread > 15.0f || fEntry->Spread < -15)
+            if (fEntry.Spread > 15.0f || fEntry.Spread < -15)
             {
-                sLog.outErrorDb("LoadSpawnGroups: Invalid spread value (%5.2f) should be between (-15..15) in formation ID:%u . Skipping.", fEntry->Spread, fEntry->GroupId);
+                sLog.outErrorDb("LoadSpawnGroups: Invalid spread value (%5.2f) should be between (-15..15) in formation ID:%u . Skipping.", fEntry.Spread, fEntry.GroupId);
                 continue;
             }
 
-            itr->second.formationEntry = std::move(fEntry);
+            itr->second.Formation = std::make_unique<FormationEntry>(std::move(fEntry));
         } while (result->NextRow());
     }
 
@@ -1393,7 +1398,7 @@ void ObjectMgr::LoadSpawnGroups()
         // check and fix correctness of slot id indexation
         for (auto& sg : newContainer->spawnGroupMap)
         {
-            if (sg.second.formationEntry == nullptr)
+            if (sg.second.Formation == nullptr)
                 continue;
 
             auto& guidMap = sg.second.DbGuids;
@@ -4505,9 +4510,6 @@ void ObjectMgr::LoadGroups()
 void ObjectMgr::LoadQuests()
 {
     // For reload case
-    for (QuestMap::const_iterator itr = mQuestTemplates.begin(); itr != mQuestTemplates.end(); ++itr)
-        delete itr->second;
-
     mQuestTemplates.clear();
 
     m_ExclusiveQuestGroups.clear();
@@ -4569,7 +4571,8 @@ void ObjectMgr::LoadQuests()
         Field* fields = queryResult->Fetch();
 
         Quest* newQuest = new Quest(fields);
-        mQuestTemplates[newQuest->GetQuestId()] = newQuest;
+        auto itr = mQuestTemplates.try_emplace(newQuest->GetQuestId(), newQuest).first;
+        newQuest->m_weakRef = itr->second;
     }
     while (queryResult->NextRow());
 
@@ -4579,7 +4582,7 @@ void ObjectMgr::LoadQuests()
 
     for (auto& mQuestTemplate : mQuestTemplates)
     {
-        Quest* qinfo = mQuestTemplate.second;
+        Quest* qinfo = mQuestTemplate.second.get();
 
         // additional quest integrity checks (GO, creature_template and item_template must be loaded already)
 
@@ -5158,7 +5161,7 @@ void ObjectMgr::LoadQuests()
     // Prevent any breadcrumb loops, and inform target quests of their breadcrumbs
     for (auto& mQuestTemplate : mQuestTemplates)
     {
-        Quest* qinfo = mQuestTemplate.second;
+        Quest* qinfo = mQuestTemplate.second.get();
         uint32   qid = qinfo->GetQuestId();
         uint32 breadcrumbForQuestId = qinfo->BreadcrumbForQuestId;
         std::set<uint32> questSet;
@@ -5839,7 +5842,7 @@ void ObjectMgr::LoadConditions()
 
     for (auto& mQuestTemplate : mQuestTemplates) // needs to be checked after loading conditions
     {
-        Quest* qinfo = mQuestTemplate.second;
+        Quest* qinfo = mQuestTemplate.second.get();
 
         if (qinfo->RequiredCondition)
         {

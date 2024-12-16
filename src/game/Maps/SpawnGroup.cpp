@@ -113,9 +113,6 @@ uint32 SpawnGroup::GetEligibleEntry(std::map<uint32, uint32>& existingEntries, s
         auto itr = minEntries.begin();
         std::advance(itr, urand(0, minEntries.size() - 1));
         uint32 entry = (*itr).first;
-        --(*itr).second;
-        if ((*itr).second == 0)
-            minEntries.erase(itr);
         return entry;
     }
 
@@ -240,10 +237,9 @@ void SpawnGroup::Spawn(bool force)
 
     std::shuffle(eligibleGuids.begin(), eligibleGuids.end(), *GetRandomGenerator());
 
-    for (auto itr = eligibleGuids.begin(); itr != eligibleGuids.end() && !eligibleGuids.empty() && m_objects.size() < m_entry.MaxCount; ++itr)
+    for (auto itr = eligibleGuids.begin(); itr != eligibleGuids.end() && !eligibleGuids.empty() && m_objects.size() < m_entry.MaxCount;)
     {
         uint32 dbGuid = (*itr)->DbGuid;
-        uint32 entry = 0;
         if (m_entry.HasChancedSpawns)
         {
             if ((*itr)->Chance)
@@ -259,44 +255,102 @@ void SpawnGroup::Spawn(bool force)
                     spawn = spawnItr->second;
 
                 if (!spawn)
+                {
+                    itr = eligibleGuids.erase(itr);
                     continue;
+                }
             }
             else // filling redundant entries when a group has chanced spawns for optimization so we can stop at start
                 m_chosenSpawns[dbGuid] = true;
         }
+        ++itr;
+    }
 
-        // creatures pick random entry on first spawn in dungeons - else always pick random entry
-        if (GetObjectTypeId() == TYPEID_UNIT)
+    eligibleGuids.resize(std::min(eligibleGuids.size(), m_entry.MaxCount - m_objects.size())); // now we have final count for processing
+
+    auto pickCreatureEntry = [&](const SpawnGroupDbGuids* guids) -> uint32
+    {
+        uint32 entry;
+        // some group members can have static entry, or selfcontained random entry
+        if (guids->RandomEntry)
+            entry = sObjectMgr.GetRandomCreatureEntry(guids->DbGuid);
+        else if (guids->OwnEntry)
+            entry = guids->OwnEntry;
+        else
+            entry = GetEligibleEntry(validEntries, minEntries);
+
+        return entry;
+    };
+
+    auto pickGoEntry = [&](const SpawnGroupDbGuids* guids) -> uint32
+    {
+        uint32 entry;
+        // some group members can have static entry, or selfcontained random entry
+        if (guids->RandomEntry)
+            entry = sObjectMgr.GetRandomGameObjectEntry(guids->DbGuid);
+        else if (guids->OwnEntry)
+            entry = guids->OwnEntry;
+        else
+            entry = GetEligibleEntry(validEntries, minEntries);
+
+        return entry;
+    };
+
+    auto eraseEntry = [&](uint32 entry)
+    {
+        if (entry)
         {
-            if (m_map.IsDungeon())
+            if (validEntries[entry])
+                --validEntries[entry];
+
+            auto itr = minEntries.find(entry);
+            if (itr != minEntries.end())
             {
-                // only held in memory - implement saving to db if it becomes a major issue
-                if (m_chosenEntries.find(dbGuid) == m_chosenEntries.end())
-                {
-                    // some group members can have static entry, or selfcontained random entry
-                    if ((*itr)->RandomEntry)
-                        entry = sObjectMgr.GetRandomCreatureEntry(dbGuid);
-                    else if ((*itr)->OwnEntry)
-                        entry = (*itr)->OwnEntry;
-                    else
-                        entry = GetEligibleEntry(validEntries, minEntries);
-                    m_chosenEntries[dbGuid] = entry;
-                }
-                else
-                    entry = m_chosenEntries[dbGuid];
+                (*itr).second -= 1;
+                if ((*itr).second == 0)
+                    minEntries.erase(itr);
             }
-            else
-                entry = GetEligibleEntry(validEntries, minEntries);
         }
-        else // GOs always pick random entry
+    };
+
+    // pick static and random entry first in dungeons so spawn group logic can decide after
+    if (m_map.IsDungeon() && GetObjectTypeId() == TYPEID_UNIT)
+    {
+        for (auto data : eligibleGuids)
         {
-            if ((*itr)->RandomEntry)
-                entry = sObjectMgr.GetRandomGameObjectEntry(dbGuid);
-            else if ((*itr)->OwnEntry)
-                entry = (*itr)->OwnEntry;
-            else
-                entry = GetEligibleEntry(validEntries, minEntries);
+            if (data->RandomEntry || data->OwnEntry)
+            {
+                uint32 entry = pickCreatureEntry(data);
+                m_chosenEntries[data->DbGuid] = entry;
+                eraseEntry(entry);
+            }
         }
+        for (auto data : eligibleGuids)
+        {
+            if (!data->RandomEntry && !data->OwnEntry)
+            {
+                uint32 entry = pickCreatureEntry(data);
+                m_chosenEntries[data->DbGuid] = entry;
+                eraseEntry(entry);
+            }
+        }
+    }
+
+    for (auto itr = eligibleGuids.begin(); itr != eligibleGuids.end(); ++itr)
+    {
+        uint32 dbGuid = (*itr)->DbGuid;
+        uint32 entry = 0;
+        // creatures pick random entry on first spawn in dungeons - else always pick random entry
+        if (m_map.IsDungeon() && GetObjectTypeId() == TYPEID_UNIT)
+            entry = m_chosenEntries[dbGuid]; // only held in memory - implement saving to db if it becomes a major issue
+        else
+        {
+            if (GetObjectTypeId() == TYPEID_UNIT)
+                entry = pickCreatureEntry(*itr);
+            else // GOs always pick random entry
+                entry = pickGoEntry(*itr);
+            eraseEntry(entry);
+        }   
 
         float x, y;
         if (GetObjectTypeId() == TYPEID_UNIT)
@@ -319,8 +373,6 @@ void SpawnGroup::Spawn(bool force)
             else
                 WorldObject::SpawnGameObject(dbGuid, &m_map, entry);
         }
-        if (entry && validEntries[entry])
-            --validEntries[entry];
     }
 }
 
@@ -392,8 +444,8 @@ std::string SpawnGroup::to_string() const
 
 CreatureGroup::CreatureGroup(SpawnGroupEntry const& entry, Map& map) : SpawnGroup(entry, map, uint32(TYPEID_UNIT))
 {
-    if (entry.formationEntry)
-        m_formationData = std::make_shared<FormationData>(this, entry.formationEntry);
+    if (entry.Formation)
+        m_formationData = std::make_shared<FormationData>(this, *(entry.Formation.get()));
     else
         m_formationData = nullptr;
 }
@@ -483,18 +535,16 @@ void CreatureGroup::TriggerLinkingEvent(uint32 event, Unit* target)
     }
 }
 
-void CreatureGroup::SetFormationData(FormationEntrySPtr fEntry)
+void CreatureGroup::SetFormationData(FormationEntry const& fEntry)
 {
-    if (fEntry)
-    {
-        m_formationData = std::make_shared<FormationData>(this, fEntry);
-        m_formationData->Reset();
-    }
-    else
-    {
-        m_formationData->Disband();
-        m_formationData = nullptr;
-    }
+    m_formationData = std::make_shared<FormationData>(this, fEntry);
+    m_formationData->Reset();
+}
+
+void CreatureGroup::ClearFormationData()
+{
+    m_formationData->Disband();
+    m_formationData = nullptr;
 }
 
 void CreatureGroup::Update()
@@ -626,8 +676,8 @@ void GameObjectGroup::Despawn(uint32 timeMSToDespawn /*= 0*/, uint32 forcedDespa
 // Formation code //
 ////////////////////
 
-FormationData::FormationData(CreatureGroup* gData, FormationEntrySPtr fEntry) :
-    m_groupData(gData), m_fEntry(fEntry), m_mirrorState(false), m_followerStopped(false), m_masterDied(false), m_lastWP(0), m_wpPathId(0)
+FormationData::FormationData(CreatureGroup* gData, FormationEntry const& fEntry) :
+    m_groupData(gData), m_formationEntry(fEntry), m_mirrorState(false), m_followerStopped(false), m_masterDied(false), m_lastWP(0), m_wpPathId(0)
 {
     for (auto const& sData : m_groupData->GetGroupEntry().DbGuids)
     {
@@ -638,15 +688,15 @@ FormationData::FormationData(CreatureGroup* gData, FormationEntrySPtr fEntry) :
             m_realMasterDBGuid = sData.DbGuid;
     }
 
-    m_masterMotionType = static_cast<MovementGeneratorType>(fEntry->MovementType);
+    m_masterMotionType = static_cast<MovementGeneratorType>(m_formationEntry.MovementType);
 
     // provided slot id should be ordered with no gap!
     m_slotGuid = m_slotsMap.size();
 
     // set current value from their defaults
-    m_currentFormationShape = m_fEntry->Type;
-    m_currentSpread = m_fEntry->Spread;
-    m_currentOptions = m_fEntry->Options;
+    m_currentFormationShape = m_formationEntry.Type;
+    m_currentSpread = m_formationEntry.Spread;
+    m_currentOptions = m_formationEntry.Options;
 }
 
 FormationData::~FormationData()
@@ -744,12 +794,12 @@ void FormationData::ClearMoveGen()
         Unit* slotUnit = slot->GetOwner();
         if (slotUnit && slotUnit->IsAlive())
         {
-            if (m_fEntry->IsDynamic && slot->IsFormationMaster())
+            if (m_formationEntry.IsDynamic && slot->IsFormationMaster())
                 continue;
             if (slot->IsFormationMaster())
             {
                 // do not change leader movement in dynamic state, script have to handle that
-                if (m_fEntry->IsDynamic)
+                if (m_formationEntry.IsDynamic)
                     continue;
 
                 m_lastWP = slotUnit->GetMotionMaster()->getLastReachedWaypoint();
@@ -777,14 +827,14 @@ void FormationData::SetMasterMovement()
     newMaster->GetMotionMaster()->Clear(true, true);
     if (m_masterMotionType == WAYPOINT_MOTION_TYPE)
     {
-        newMaster->GetMotionMaster()->MoveWaypoint(m_fEntry->MovementIdOrWander, PATH_FROM_WAYPOINT_PATH);
+        newMaster->GetMotionMaster()->MoveWaypoint(m_formationEntry.MovementIdOrWander, PATH_FROM_WAYPOINT_PATH);
         newMaster->GetMotionMaster()->SetNextWaypoint(m_lastWP + 1);
         m_wpPathId = 0;
         m_lastWP = 0;
     }
     else if (m_masterMotionType == LINEAR_WP_MOTION_TYPE)
     {
-        newMaster->GetMotionMaster()->MoveLinearWP(m_fEntry->MovementIdOrWander, PATH_FROM_WAYPOINT_PATH);
+        newMaster->GetMotionMaster()->MoveLinearWP(m_formationEntry.MovementIdOrWander, PATH_FROM_WAYPOINT_PATH);
         newMaster->GetMotionMaster()->SetNextWaypoint(m_lastWP + 1);
         m_wpPathId = 0;
         m_lastWP = 0;
@@ -856,7 +906,7 @@ bool FormationData::TrySetNewMaster(Unit* masterCandidat /*= nullptr*/)
         FixSlotsPositions();
 
         // will start master movement only if its not dynamic formation
-        if (!m_fEntry->IsDynamic)
+        if (!m_formationEntry.IsDynamic)
             SetMasterMovement();
 
         SetFollowersMaster();
@@ -871,7 +921,7 @@ void FormationData::Reset()
     m_mirrorState = false;
     m_masterDied = false;
 
-    SwitchFormation(m_fEntry->Type);
+    SwitchFormation(m_formationEntry.Type);
 
     FormationSlotMap::iterator slotItr = m_slotsMap.end();
     for (FormationSlotMap::iterator itr = m_slotsMap.begin(); itr != m_slotsMap.end();)
@@ -1282,9 +1332,6 @@ FormationSlotDataSPtr FormationData::SetFormationSlot(Creature* creature, SpawnG
 
     auto const& gEntry = m_groupData->GetGroupEntry();
 
-    if (m_fEntry == nullptr)
-        return nullptr;
-
     uint32 dbGuid = creature->GetDbGuid();
 
     // check if existing slot
@@ -1311,7 +1358,7 @@ FormationSlotDataSPtr FormationData::SetFormationSlot(Creature* creature, SpawnG
         SetMasterMovement();
 
         // reset formation shape as it will restart from node 0 in respawn case
-        SwitchFormation(m_fEntry->Type);
+        SwitchFormation(m_formationEntry.Type);
     }
 
     if (GetMaster())
@@ -1339,13 +1386,13 @@ std::string FormationData::to_string() const
     std::string fType = FormationType[static_cast<uint32>(m_currentFormationShape)];
     std::string fMoveType = GetMoveTypeStr(m_masterMotionType);
     std::string fOptions = (HaveOption(SPAWN_GROUP_FORMATION_OPTION_KEEP_CONPACT)) ? ", keepCompact" : "no options";
-    result << "Formation group id: " << m_fEntry->GroupId    << "\n";
-    result << "Shape: "              << fType                << "\n";
-    result << "Spread: "             << m_currentSpread      << "\n";
-    result << "MovementType: "       << fMoveType            << "\n";
-    result << "MovementId: "         << m_fEntry->MovementIdOrWander << "\n";
-    result << "Options: "            << fOptions             << "\n";
-    result << "Comment: "            << m_fEntry->Comment    << "\n";
+    result << "Formation group id: " << m_formationEntry.GroupId            << "\n";
+    result << "Shape: "              << fType                               << "\n";
+    result << "Spread: "             << m_currentSpread                     << "\n";
+    result << "MovementType: "       << fMoveType                           << "\n";
+    result << "MovementId: "         << m_formationEntry.MovementIdOrWander << "\n";
+    result << "Options: "            << fOptions                            << "\n";
+    result << "Comment: "            << m_formationEntry.Comment            << "\n";
 
     for (auto slot : m_slotsMap)
     {
@@ -1364,8 +1411,8 @@ std::string FormationData::to_string() const
 // Change movement data so it can resume it if leader change
 void FormationData::SetMovementInfo(MovementGeneratorType moveType, uint32 wanderOrPahtId)
 {
-    m_fEntry->MovementIdOrWander = wanderOrPahtId;
-    m_fEntry->MovementType = moveType;
+    m_formationEntry.MovementIdOrWander = wanderOrPahtId;
+    m_formationEntry.MovementType = moveType;
     m_masterMotionType = moveType;
     m_lastWP = 0;
     auto master = GetMaster();

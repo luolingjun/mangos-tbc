@@ -978,11 +978,11 @@ void World::SetInitialWorldSettings()
     sSpellMgr.LoadSkillRaceClassInfoMap();
 
     ///- Clean up and pack instances
-    sLog.outString("Cleaning up instances...");
-    sMapPersistentStateMgr.CleanupInstances();              // must be called before `creature_respawn`/`gameobject_respawn` tables
-
     sLog.outString("Packing instances...");
     sMapPersistentStateMgr.PackInstances();
+
+    sLog.outString("Cleaning up instances...");
+    sMapPersistentStateMgr.CleanupInstances();              // must be called before `creature_respawn`/`gameobject_respawn` tables and after pack instances
 
     sLog.outString("Packing groups...");
     sObjectMgr.PackGroupIds();                              // must be after CleanupInstances
@@ -1296,10 +1296,10 @@ void World::SetInitialWorldSettings()
     sObjectMgr.LoadGameObjectForQuests();
 
     sLog.outString("Loading BattleMasters...");
-    sBattleGroundMgr.LoadBattleMastersEntry();
+    sBattleGroundMgr.LoadBattleMastersEntry(false);
 
     sLog.outString("Loading BattleGround event indexes...");
-    sBattleGroundMgr.LoadBattleEventIndexes();
+    sBattleGroundMgr.LoadBattleEventIndexes(false);
 
     sLog.outString("Loading GameTeleports...");
     sObjectMgr.LoadGameTele();

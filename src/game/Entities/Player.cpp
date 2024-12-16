@@ -4217,16 +4217,9 @@ void Player::DeleteFromDB(ObjectGuid playerguid, uint32 accountId, bool updateRe
 
     // remove from guild
     if (uint32 guildId = GetGuildIdFromDB(playerguid))
-    {
         if (Guild* guild = sGuildMgr.GetGuildById(guildId))
-        {
             if (guild->DelMember(playerguid))
-            {
                 guild->Disband();
-                delete guild;
-            }
-        }
-    }
 
     // remove from arena teams
     LeaveAllArenaTeams(playerguid);
@@ -6601,15 +6594,25 @@ int32 Player::CalculateReputationGain(ReputationSource source, int32 rep, int32 
 
     uint32 currentLevel = GetLevel();
 
-    if (MaNGOS::XP::IsTrivialLevelDifference(currentLevel, creatureOrQuestLevel))
-        percent *= minRate;
-    else
+    // Level zero seems to be treated as always equal to players current level in IsTrivialLevelDifference therefore I have skipped level difference penalty computations for that value
+    if (creatureOrQuestLevel > 0)
     {
-        // Pre-3.0.8: Declines with 20% for each level if 6 levels or more below the player down to a minimum (default: 20%)
-        const uint32 treshold = (creatureOrQuestLevel + 5);
+        if (source == REPUTATION_SOURCE_KILL)
+        {
+            if (MaNGOS::XP::IsTrivialLevelDifference(currentLevel, creatureOrQuestLevel))
+            {
+                const uint32 greenRange = MaNGOS::XP::GetQuestGreenRange(currentLevel);
+                percent *= std::max(minRate, (1.0f - (0.2f * (currentLevel - greenRange - creatureOrQuestLevel))));
+            }
+        }
+        else if (source == REPUTATION_SOURCE_QUEST)
+        {
+            // Pre-3.0.8: Declines with 20% for each level if 6 levels or more below the player down to a minimum (default: 20%)
+            const uint32 treshold = (creatureOrQuestLevel + 5);
 
-        if (currentLevel > treshold)
-            percent *= std::max(minRate, (1.0f - (0.2f * (currentLevel - treshold))));
+            if (currentLevel > treshold)
+                percent *= std::max(minRate, (1.0f - (0.2f * (currentLevel - treshold))));
+        }
     }
 
     if (percent <= 0.0f)
@@ -15182,8 +15185,6 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
 
     _LoadBGData(holder->GetResult(PLAYER_LOGIN_QUERY_LOADBGDATA));
 
-    
-
     if (m_bgData.bgInstanceID)                              // saved in BattleGround
     {
         BattleGround* currentBg = sBattleGroundMgr.GetBattleGround(m_bgData.bgInstanceID, BATTLEGROUND_TYPE_NONE);
@@ -21079,7 +21080,7 @@ void Player::learnClassLevelSpells(bool includeHighLevelQuestRewards)
     ObjectMgr::QuestMap const& qTemplates = sObjectMgr.GetQuestTemplates();
     for (const auto& qTemplate : qTemplates)
     {
-        Quest const* quest = qTemplate.second;
+        Quest const* quest = qTemplate.second.get();
         if (!quest)
             continue;
 
