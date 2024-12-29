@@ -32,11 +32,10 @@ CreatureAI::CreatureAI(Creature* creature, uint32 combatActions) :
 {
     m_dismountOnAggro = !(m_creature->GetCreatureInfo()->CreatureTypeFlags & CREATURE_TYPEFLAGS_MOUNTED_COMBAT);
     SetMeleeEnabled(!(m_creature->GetSettings().HasFlag(CreatureStaticFlags::NO_MELEE_FLEE)
-        || m_creature->GetSettings().HasFlag(CreatureStaticFlags4::NO_MELEE_APPROACH)));
+        || m_creature->GetSettings().HasFlag(CreatureStaticFlags4::NO_MELEE_APPROACH) || m_creature->GetCreatureInfo()->ExtraFlags & CREATURE_EXTRA_FLAG_NO_MELEE));
     if (m_creature->GetSettings().HasFlag(CreatureStaticFlags::SESSILE))
         SetAIImmobilizedState(true);
 
-    SetMeleeEnabled(!(m_creature->GetCreatureInfo()->ExtraFlags & CREATURE_EXTRA_FLAG_NO_MELEE));
     if (m_creature->IsNoAggroOnSight())
         SetReactState(REACT_DEFENSIVE);
     if (m_creature->GetSettings().HasFlag(CreatureStaticFlags2::SPAWN_DEFENSIVE))
@@ -73,6 +72,18 @@ void CreatureAI::EnterCombat(Unit* enemy)
 
 void CreatureAI::AttackStart(Unit* who)
 {
+    if (m_creature->GetSettings().HasFlag(CreatureStaticFlags::COMBAT_PING))
+    {
+        if (Player* owner = dynamic_cast<Player*>(m_creature->GetSpawner()))
+        {
+            WorldPacket data(MSG_MINIMAP_PING, (8 + 4 + 4));
+            data << m_creature->GetObjectGuid();
+            data << m_creature->GetPositionX();
+            data << m_creature->GetPositionY();
+            owner->SendDirectMessage(data);
+        }
+    }
+
     if (!who || HasReactState(REACT_PASSIVE))
         return;
 

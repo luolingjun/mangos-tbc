@@ -1666,16 +1666,16 @@ Loot::Loot(Player* player, Creature* creature, LootType type) :
     m_clientLootType(CLIENT_LOOT_CORPSE), m_lootMethod(NOT_GROUP_TYPE_LOOT), m_threshold(ITEM_QUALITY_UNCOMMON), m_maxEnchantSkill(0), m_haveItemOverThreshold(false),
     m_isChecked(false), m_isChest(false), m_isChanged(false), m_isFakeLoot(false), m_createTime(World::GetCurrentClockTime())
 {
-    // the player whose group may loot the corpse
-    if (!player)
-    {
-        sLog.outError("LootMgr::CreateLoot> Error cannot get looter info to create loot!");
-        return;
-    }
-
     if (!creature)
     {
         sLog.outError("Loot::CreateLoot> cannot create loot, no creature passed!");
+        return;
+    }
+
+    // the player whose group may loot the corpse
+    if (!player && !creature->GetSettings().HasFlag(CreatureStaticFlags::CAN_WIELD_LOOT))
+    {
+        sLog.outError("LootMgr::CreateLoot> Error cannot get looter info to create loot!");
         return;
     }
 
@@ -1687,8 +1687,15 @@ Loot::Loot(Player* player, Creature* creature, LootType type) :
     {
         case LOOT_CORPSE:
         {
-            // setting loot right
-            SetGroupLootRight(player);
+            if (creature->GetSettings().HasFlag(CreatureStaticFlags3::CAN_BE_MULTITAPPED))
+            {
+                for (auto& threatEntry : creature->getThreatManager().getThreatList())
+                    if (threatEntry->getTarget()->IsPlayer())
+                        m_ownerSet.insert(threatEntry->getTarget()->GetObjectGuid());
+            }
+            else if (player)
+                // setting loot right
+                SetGroupLootRight(player);
             m_clientLootType = CLIENT_LOOT_CORPSE;
 
             if ((creatureInfo->LootId && FillLoot(creatureInfo->LootId, LootTemplates_Creature, player, false)) || creatureInfo->MaxLootGold > 0)
@@ -1782,7 +1789,7 @@ Loot::Loot(Player* player, GameObject* gameObject, LootType type, bool lootSnaps
     m_guidTarget = gameObject->GetObjectGuid();
 
     // not check distance for GO in case owned GO (fishing bobber case, for example)
-    // And permit out of range GO with no owner in case fishing hole
+    // And permit out of ranged GO with no owner in case fishing hole
     if (!lootSnapshot) // ignores distance
     {
         if ((type != LOOT_FISHINGHOLE &&
@@ -2093,6 +2100,48 @@ InventoryResult Loot::SendItem(Player* target, LootItem* lootItem, bool sendErro
         ForceLootAnimationClientUpdate();
     }
     return msg;
+}
+
+std::tuple<uint32, uint32, uint32> Loot::GetQualifiedWeapons()
+{
+    uint32 mh = 0, oh = 0, ranged = 0;
+    uint32 mhType = 0;
+    for (auto const& itr : m_lootItems)
+    {
+        if (ItemPrototype const* pItem = sObjectMgr.GetItemPrototype(itr->itemId))
+        {
+            if (mh == 0)
+            {
+                if (pItem->InventoryType == INVTYPE_WEAPON ||
+                    pItem->InventoryType == INVTYPE_WEAPONMAINHAND ||
+                    pItem->InventoryType == INVTYPE_2HWEAPON && oh == 0)
+                {
+                    mh = itr->itemId;
+                    mhType = pItem->InventoryType;
+                    continue;
+                }
+            }
+
+            if (oh == 0 && mhType != INVTYPE_2HWEAPON)
+            {
+                if (pItem->InventoryType == INVTYPE_WEAPON ||
+                    pItem->InventoryType == INVTYPE_WEAPONOFFHAND ||
+                    pItem->InventoryType == INVTYPE_SHIELD ||
+                    pItem->InventoryType == INVTYPE_HOLDABLE)
+                {
+                    oh = itr->itemId;
+                    continue;
+                }
+            }
+
+            if (ranged == 0 && pItem->IsRangedWeapon())
+            {
+                ranged = itr->itemId;
+                continue;
+            }
+        }
+    }
+    return { mh, oh, ranged };
 }
 
 bool Loot::AutoStore(Player* player, bool broadcast /*= false*/, uint32 bag /*= NULL_BAG*/, uint32 slot /*= NULL_SLOT*/)
