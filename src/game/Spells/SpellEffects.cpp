@@ -2896,7 +2896,7 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                                         + unitTarget->SpellBaseDamageBonusTaken(GetSpellSchoolMask(m_spellInfo));
                     // Does Amplify Magic/Dampen Magic influence flametongue? If not, the above addition must be removed.
                     float weaponSpeed = float(m_CastItem->GetProto()->Delay) / IN_MILLISECONDS;
-                    bonusDamage = m_caster->SpellBonusWithCoeffs(m_spellInfo, eff_idx, 0, bonusDamage, 0, SPELL_DIRECT_DAMAGE, false); // apply spell coeff
+                    bonusDamage = m_caster->SpellBonusWithCoeffs(m_spellInfo, eff_idx, 0, bonusDamage, 0, false); // apply spell coeff
                     int32 totalDamage = (damage * 0.01 * weaponSpeed) + bonusDamage;
 
                     m_caster->CastCustomSpell(unitTarget, 10444, &totalDamage, nullptr, nullptr, TRIGGERED_OLD_TRIGGERED, m_CastItem);
@@ -5871,12 +5871,16 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 case 18945:
                 case 19633:
                 case 20686:
+                case 22920:
                 case 23382:
                 case 25778:
+                case 30013:
                 case 30121:                                 // Forceful Howl - Plagued Deathhound
                 case 31389:                                 // Knock Away
                 case 32077:                                 // Boglord Bash
                 case 32959:                                 // Knock Away
+                case 37102:
+                case 37317:
                 case 37597:                                 // Meat Slap
                 case 40486:                                 // Eject - Bloodboil
                 {
@@ -5895,6 +5899,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         case 40486:
                             pct = -25;
                             break;
+                        case 22920:                                 // Arcane Blast - Prince Tortheldrin 11486
                         case 30013:                                 // Disarm - Ethereal Thief 16544
                         case 37317:                                 // Knockback - Tempest Falconer 20037
                         case 10101:

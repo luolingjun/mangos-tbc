@@ -329,7 +329,7 @@ Aura::Aura(SpellEntry const* spellproto, SpellEffectIndex eff, int32 const* curr
     m_spellmod(nullptr), m_periodicTimer(0), m_periodicTick(0), m_removeMode(AURA_REMOVE_BY_DEFAULT),
     m_effIndex(eff), m_positive(false), m_isPeriodic(false), m_isAreaAura(false),
     m_isPersistent(false), m_magnetUsed(false), m_spellAuraHolder(holder),
-    m_scriptValue(0), m_storage(nullptr), m_scriptRef(this, NoopAuraDeleter()), m_affectOverriden(false)
+    m_scriptValue(0), m_storage(nullptr), m_affectOverriden(false), m_scriptRef(this, NoopAuraDeleter())
 {
     MANGOS_ASSERT(target);
     MANGOS_ASSERT(spellproto && spellproto == sSpellTemplate.LookupEntry<SpellEntry>(spellproto->Id) && "`info` must be pointer to sSpellTemplate element");
@@ -4761,8 +4761,6 @@ void Aura::HandleAuraProcTriggerSpell(bool apply, bool Real)
     if (!Real)
         return;
 
-    Unit* target = GetTarget();
-
     switch (GetId())
     {
         // some spell have charges by functionality not have its in spell data
@@ -4936,9 +4934,6 @@ void Aura::HandleAuraPeriodicDummy(bool apply, bool Real)
         return;
 
     Unit* target = GetTarget();
-
-    // For prevent double apply bonuses
-    bool loading = (target->GetTypeId() == TYPEID_PLAYER && ((Player*)target)->GetSession()->PlayerLoading());
 
     SpellEntry const* spell = GetSpellProto();
     switch (spell->SpellFamilyName)
@@ -6608,7 +6603,6 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
     if (!caster)
         return;
 
-    Unit* target = GetTarget();
     SpellEntry const* spellProto = GetSpellProto();
     if (!apply)
     {
@@ -7428,8 +7422,6 @@ void Aura::PeriodicDummyTick()
                     if (target->GetPowerPercent() == 100.f)
                         return;
                     // Regen amount is max (100% from spell) on 21% or less mana and min on 92.5% or greater mana (20% from spell)
-                    int32 mana = target->GetPower(POWER_MANA);
-                    int32 max_mana = target->GetMaxPower(POWER_MANA);
                     int32 intelectPercent = 10 + int32((100.f - target->GetPowerPercent()) / 100 * 45.f);
                     if (target->HasAura(38390)) // Improved Aspect of the Viper
                         intelectPercent += 5;

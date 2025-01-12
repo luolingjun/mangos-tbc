@@ -39,6 +39,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (26569,'spell_hate_to_zero'),
 (26637,'spell_hate_to_zero'),
 (10255,'spell_stoned'),
+(11920,'spell_net_guard'),
 (12639,'spell_summon_hakkar'),
 (12948,'spell_hakkar_summoned'),
 (13278,'spell_gdr_channel'),
@@ -659,6 +660,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (29354,'spell_gameobject_call_for_help_on_usage'), -- Mining (Master)
 (30434,'spell_gameobject_call_for_help_on_usage'), -- Elemental Seaforium Charge
 (34799,'spell_arcane_devastation'),
+(34145,'spell_ritual_of_souls_dummy'),
 (32173,'spell_entangling_roots');
 
 -- Wotlk

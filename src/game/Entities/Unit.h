@@ -2211,7 +2211,7 @@ class Unit : public WorldObject
         void UnsummonAllTotems() const;
         Unit* SelectMagnetTarget(Unit* victim, Spell* spell = nullptr);
 
-        int32 SpellBonusWithCoeffs(SpellEntry const* spellProto, SpellEffectIndex effectIndex, int32 total, int32 benefit, int32 ap_benefit, DamageEffectType damagetype, bool donePart);
+        int32 SpellBonusWithCoeffs(SpellEntry const* spellProto, SpellEffectIndex effectIndex, int32 total, int32 benefit, int32 ap_benefit, bool donePart);
         int32 SpellBaseDamageBonusDone(SpellSchoolMask schoolMask);
         int32 SpellBaseDamageBonusTaken(SpellSchoolMask schoolMask) const;
         uint32 SpellDamageBonusDone(Unit* victim, SpellSchoolMask schoolMask, SpellEntry const* spellProto, SpellEffectIndex effectIndex, uint32 pdamage, DamageEffectType damagetype, uint32 stack = 1);
@@ -2510,8 +2510,8 @@ class Unit : public WorldObject
         virtual bool IsIgnoringMisdirection() const { return false; }
 
         virtual CreatureInfo const* GetMountInfo() const { return nullptr; } // TODO: Meant to be used by players during taxi
-        virtual void SetMountInfo(CreatureInfo const* info) {} // does nothing for base unit
-        virtual void SetModelRunSpeed(float runSpeed) {} // does nothing for base unit
+        virtual void SetMountInfo(CreatureInfo const* /*info*/) {} // does nothing for base unit
+        virtual void SetModelRunSpeed(float /*runSpeed*/) {} // does nothing for base unit
 
     protected:
         bool MeetsSelectAttackingRequirement(Unit* target, SpellEntry const* spellInfo, uint32 selectFlags, SelectAttackingTargetParams params, int32 unitConditionId) const;
