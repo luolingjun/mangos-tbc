@@ -1488,12 +1488,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
 
                     return;
                 }
-                case 26399:                                 // Despawn Tentacles
-                {
-                    if (unitTarget->GetTypeId() == TYPEID_UNIT)
-                        ((Creature*)unitTarget)->ForcedDespawn();
-                    return;
-                }
                 case 26626:                                 // Mana Burn Area
                 {
                     if (unitTarget->GetTypeId() == TYPEID_UNIT && unitTarget->GetPowerType() == POWER_MANA)
@@ -7881,6 +7875,7 @@ void Spell::EffectAddExtraAttacks(SpellEffectIndex /*eff_idx*/)
         return;
 
     unitTarget->m_extraAttacks = damage;
+    unitTarget->m_extraAttackGuid = unitTarget->GetVictim() ? unitTarget->GetVictim()->GetObjectGuid() : ObjectGuid();
     m_spellLog.AddLog(uint32(SPELL_EFFECT_ADD_EXTRA_ATTACKS), unitTarget->GetPackGUID(), damage);
 }
 
