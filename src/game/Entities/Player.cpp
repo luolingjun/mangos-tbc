@@ -7650,7 +7650,7 @@ void Player::ApplyEquipSpell(SpellEntry const* spellInfo, Item* item, bool apply
 
         DEBUG_LOG("WORLD: cast %s Equip spellId - %i", (item ? "item" : "itemset"), spellInfo->Id);
 
-        CastSpell(this, spellInfo, TRIGGERED_OLD_TRIGGERED, item);
+        CastSpell(nullptr, spellInfo, TRIGGERED_OLD_TRIGGERED, item);
     }
     else
     {
@@ -13536,6 +13536,7 @@ void Player::RewardQuest(Quest const* pQuest, uint32 reward, Object* questGiver,
         itr->second->ApplyOrRemoveSpellIfCan(this, zone, area, false);
 
     // resend quests status directly
+    UpdateForQuestWorldObjects();
     SendQuestGiverStatusMultiple();
 }
 
@@ -19597,7 +19598,7 @@ void Player::SendInitialPacketsBeforeAddToMap()
         SetMover(this);
 }
 
-void Player::SendInitialPacketsAfterAddToMap()
+void Player::SendInitialPacketsAfterAddToMap(bool reconnect)
 {
     // update zone
     uint32 newzone, newarea;
@@ -19607,21 +19608,24 @@ void Player::SendInitialPacketsAfterAddToMap()
     GetSession()->ResetTimeSync();
     GetSession()->SendTimeSync();
 
-    // set some aura effects that send packet to player client after add player to map
-    // SendMessageToSet not send it to player not it map, only for aura that not changed anything at re-apply
-    // same auras state lost at far teleport, send it one more time in this case also
-    static const AuraType auratypes[] =
+    if (!reconnect)
     {
-        SPELL_AURA_GHOST,        SPELL_AURA_TRANSFORM,                 SPELL_AURA_WATER_WALK,
-        SPELL_AURA_FEATHER_FALL, SPELL_AURA_HOVER,                     SPELL_AURA_SAFE_FALL,
-        SPELL_AURA_MOD_STUN,     SPELL_AURA_MOD_ROOT,                  SPELL_AURA_MOD_FEAR,
-        SPELL_AURA_FLY,          SPELL_AURA_MOD_FLIGHT_SPEED_MOUNTED,  SPELL_AURA_NONE
-    };
-    for (AuraType const* itr = &auratypes[0]; itr && itr[0] != SPELL_AURA_NONE; ++itr)
-    {
-        Unit::AuraList const& auraList = GetAurasByType(*itr);
-        if (!auraList.empty())
-            auraList.front()->ApplyModifier(true, true);
+        // set some aura effects that send packet to player client after add player to map
+        // SendMessageToSet not send it to player not it map, only for aura that not changed anything at re-apply
+        // same auras state lost at far teleport, send it one more time in this case also
+        static const AuraType auratypes[] =
+        {
+            SPELL_AURA_GHOST,        SPELL_AURA_TRANSFORM,                 SPELL_AURA_WATER_WALK,
+            SPELL_AURA_FEATHER_FALL, SPELL_AURA_HOVER,                     SPELL_AURA_SAFE_FALL,
+            SPELL_AURA_MOD_STUN,     SPELL_AURA_MOD_ROOT,                  SPELL_AURA_MOD_FEAR,
+            SPELL_AURA_FLY,          SPELL_AURA_MOD_FLIGHT_SPEED_MOUNTED,  SPELL_AURA_NONE
+        };
+        for (AuraType const* itr = &auratypes[0]; itr && itr[0] != SPELL_AURA_NONE; ++itr)
+        {
+            Unit::AuraList const& auraList = GetAurasByType(*itr);
+            if (!auraList.empty())
+                auraList.front()->ApplyModifier(true, true);
+        }
     }
 
     SendAuraDurationsOnLogin();
@@ -20168,7 +20172,8 @@ void Player::UpdateForQuestWorldObjects()
         if (m_clientGUID.IsGameObject())
         {
             if (GameObject* obj = GetMap()->GetGameObject(m_clientGUID))
-                obj->BuildValuesUpdateBlockForPlayerWithFlags(updateData, this, UF_FLAG_DYNAMIC);
+                if (sObjectMgr.IsGameObjectForQuests(obj->GetEntry()))
+                    obj->BuildValuesUpdateBlockForPlayerWithFlags(updateData, this, UF_FLAG_DYNAMIC);
         }
     }
     for (size_t i = 0; i < updateData.GetPacketCount(); ++i)

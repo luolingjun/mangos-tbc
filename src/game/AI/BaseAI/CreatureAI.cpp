@@ -30,7 +30,7 @@ CreatureAI::CreatureAI(Creature* creature, uint32 combatActions) :
     m_creature(creature),
     m_deathPrevented(false), m_followAngle(0.f), m_followDist(0.f)
 {
-    m_dismountOnAggro = !(m_creature->GetCreatureInfo()->CreatureTypeFlags & CREATURE_TYPEFLAGS_MOUNTED_COMBAT);
+    m_dismountOnAggro = !(m_creature->GetCreatureInfo()->HasFlag(CreatureTypeFlags::ALLOW_MOUNTED_COMBAT));
     SetMeleeEnabled(!(m_creature->GetSettings().HasFlag(CreatureStaticFlags::NO_MELEE_FLEE)
         || m_creature->GetSettings().HasFlag(CreatureStaticFlags4::NO_MELEE_APPROACH) || m_creature->GetCreatureInfo()->ExtraFlags & CREATURE_EXTRA_FLAG_NO_MELEE));
     if (m_creature->GetSettings().HasFlag(CreatureStaticFlags::SESSILE))
@@ -48,7 +48,6 @@ CreatureAI::CreatureAI(Creature* creature, uint32 combatActions) :
 
 void CreatureAI::Reset()
 {
-
     m_currentRangedMode = m_rangedMode;
     m_attackDistance = m_chaseDistance;
 }
@@ -62,6 +61,13 @@ void CreatureAI::EnterCombat(Unit* enemy)
         if (Player* pKiller = enemy->GetBeneficiaryPlayer())
             m_creature->SendZoneUnderAttackMessage(pKiller);
     }
+}
+
+void CreatureAI::EnterEvadeMode()
+{
+    UnitAI::EnterEvadeMode();
+    ResetTimersOnEvade();
+    Reset();
 }
 
 void CreatureAI::AttackStart(Unit* who)
@@ -114,6 +120,12 @@ void CreatureAI::JustReachedHome()
     if (m_dismountOnAggro)
         if (CreatureInfo const* mountInfo = m_creature->GetMountInfo())
             m_creature->Mount(Creature::ChooseDisplayId(mountInfo));
+}
+
+void CreatureAI::JustRespawned()
+{
+    ResetAllTimers();
+    Reset();
 }
 
 void CreatureAI::SetDeathPrevention(bool state)
