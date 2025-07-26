@@ -3394,6 +3394,7 @@ float Unit::CalculateEffectiveDodgeChance(const Unit* attacker, WeaponAttackType
     chance += (difference * factor);
     // Attacker's SPELL_AURA_MOD_COMBAT_RESULT_CHANCE contribution (or reduction)
     chance += attacker->GetTotalAuraModifierByMiscValue(SPELL_AURA_MOD_COMBAT_RESULT_CHANCE, VICTIMSTATE_DODGE);
+    chance += attacker->GetTotalAuraModifier(SPELL_AURA_MOD_ENEMY_DODGE);
     // Attacker's expertise reduction
     chance -= attacker->GetExpertisePercent(attType);
     return std::max(0.0f, std::min(chance, 100.0f));
@@ -4918,6 +4919,24 @@ int32 Unit::GetMaxNegativeAuraModifierByMiscValue(AuraType auratype, int32 misc_
         Modifier* mod = i->GetModifier();
         if (mod->m_miscvalue == misc_value && mod->m_amount < modifier)
             modifier = mod->m_amount;
+    }
+
+    return modifier;
+}
+
+int32 Unit::GetMaxPositiveAuraModifierByItemClass(AuraType auratype, Item* weapon) const
+{
+    int32 modifier = 0;
+
+    AuraList const& mTotalAuraList = GetAurasByType(auratype);
+    for (auto i : mTotalAuraList)
+    {
+        Modifier* mod = i->GetModifier();
+        SpellEntry const* spellProto = i->GetSpellProto();
+        if (spellProto->EquippedItemClass == -1 ||
+            (weapon->IsFitToSpellRequirements(spellProto)))
+            if (mod->m_amount > modifier)
+                modifier = mod->m_amount;
     }
 
     return modifier;
@@ -12385,7 +12404,7 @@ void Unit::AdjustZForCollision(float x, float y, float& z, float halfHeight) con
     }
 }
 
-uint32 Unit::GetSpellRank(SpellEntry const* spellInfo)
+uint32 Unit::GetSpellRank(SpellEntry const* spellInfo) const
 {
     uint32 spellRank = GetLevel();
     if (spellInfo->maxLevel > 0 && spellRank >= spellInfo->maxLevel * 5)
