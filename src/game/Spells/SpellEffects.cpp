@@ -1514,46 +1514,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     static_cast<Creature*>(m_caster)->ForcedDespawn(2000);
                     return;
                 }
-                case 28098:                                 // Stalagg Tesla Effect
-                case 28110:                                 // Feugen Tesla Effect
-                {
-                    if (unitTarget && unitTarget->GetTypeId() == TYPEID_UNIT && unitTarget->IsAlive())
-                    {
-                        if (!m_caster->hasUnitState(UNIT_STAT_ROOT))    // This state is found in sniffs and is probably caused by another aura like 23973
-                            m_caster->addUnitState(UNIT_STAT_ROOT);     // but as we are not sure (the aura does not show up in sniffs), we handle the state here
-
-                        // Cast chain (Stalagg Chain or Feugen Chain)
-                        uint32 chainSpellId = m_spellInfo->Id == 28098 ? 28096 : 28111;
-                        // Only cast if not already present and in range
-                        if (!unitTarget->HasAura(chainSpellId) && m_caster->IsWithinDistInMap(unitTarget, 60.0f))
-                        {
-                            if (!m_caster->IsImmuneToPlayer())
-                                m_caster->SetImmuneToPlayer(true);
-                            m_caster->CastSpell(unitTarget, chainSpellId, TRIGGERED_OLD_TRIGGERED);
-                        }
-                        // Not in range and fight in progress: remove aura and cast Shock onto players
-                        else if (!m_caster->IsWithinDistInMap(unitTarget, 60.0f) && m_caster)
-                        {
-                            unitTarget->RemoveAurasDueToSpell(chainSpellId);
-                            m_caster->SetImmuneToPlayer(false);
-
-                            if (Unit* target = ((Creature*)m_caster)->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
-                                m_caster->CastSpell(target, 28099, TRIGGERED_NONE);
-                        }
-                        // else: in range and already have aura: do nothing
-                    }
-                    return;
-                }
-                case 28359:                                 // Trigger Teslas
-                {
-                    if (unitTarget)
-                    {
-                        DoScriptText(-1533150, unitTarget, unitTarget);
-                        unitTarget->RemoveAllAuras();
-                        unitTarget->CastSpell(unitTarget, 28159, TRIGGERED_NONE);   // Shock
-                    }
-                    return;
-                }
                 case 28414:                                 // Call of the Ashbringer
                 {
                     if (!m_caster || m_caster->GetTypeId() != TYPEID_PLAYER)
@@ -1576,16 +1536,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         m_caster->CastCustomSpell(m_caster, 28733, &bp, nullptr, nullptr, TRIGGERED_OLD_TRIGGERED);
                         m_caster->RemoveAurasDueToSpell(28734);
                     }
-
-                    return;
-                }
-                case 28961:                                 // Summon Corpse Scarabs (10)
-                 {
-                    if (unitTarget->IsAlive())
-                        return;
-
-                    unitTarget->CastSpell(unitTarget, 28864, TRIGGERED_OLD_TRIGGERED);  // Actual summoning spell
-                    ((Creature*)unitTarget)->ForcedDespawn(2000);
 
                     return;
                 }
@@ -2939,12 +2889,8 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
     // Script based implementation. Must be used only for not good for implementation in core spell effects
     // So called only for not processed cases
     bool libraryResult = false;
-    if (gameObjTarget)
-        libraryResult = sScriptDevAIMgr.OnEffectDummy(m_caster, m_spellInfo->Id, eff_idx, gameObjTarget, m_originalCasterGUID);
-    else if (unitTarget && unitTarget->GetTypeId() == TYPEID_UNIT)
+    if (unitTarget && unitTarget->GetTypeId() == TYPEID_UNIT)
         libraryResult = sScriptDevAIMgr.OnEffectDummy(m_caster, m_spellInfo->Id, eff_idx, (Creature*)unitTarget, m_originalCasterGUID);
-    else if (itemTarget)
-        libraryResult = sScriptDevAIMgr.OnEffectDummy(m_caster, m_spellInfo->Id, eff_idx, itemTarget, m_originalCasterGUID);
 
     if (libraryResult || (!unitTarget && !gameObjTarget))
         return;
@@ -5864,6 +5810,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     return;
                 }
                 case 10101:                                 // Knock Away variants
+                case 18103:
                 case 18670:
                 case 18813:
                 case 18945:
@@ -5897,6 +5844,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         case 40486:
                             pct = -25;
                             break;
+                        case 18103:                                 // Backhand - Doctor Theolen Krastinov 11261
                         case 22920:                                 // Arcane Blast - Prince Tortheldrin 11486
                         case 30013:                                 // Disarm - Ethereal Thief 16544
                         case 37317:                                 // Knockback - Tempest Falconer 20037
@@ -6371,32 +6319,12 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     unitTarget->CastSpell(nullptr, 27747, TRIGGERED_OLD_TRIGGERED);  // Steam Tank Passive
                     return;
                 }
-                case 28338:                                 // Magnetic Pull
-                case 28339:                                 // Magnetic Pull
-                {
-                    if (unitTarget && m_caster->GetVictim())
-                        unitTarget->CastSpell(m_caster->GetVictim(), 28337, TRIGGERED_OLD_TRIGGERED);   // target cast actual Magnetic Pull on caster's victim
-                        // ToDo research if target should also get the threat of the caster for caster's victim.
-                        // This is the case in WotLK version but we have no proof of this in Classic/TBC
-                        // and it was common at these times to let players manage threat and tank transitions by themselves
-                    return;
-                }
-
                 case 28352:                                 // Breath of Sargeras
                 {
                     if (!unitTarget || unitTarget->GetTypeId() != TYPEID_PLAYER)
                         return;
 
                     unitTarget->CastSpell(unitTarget, 28342, TRIGGERED_OLD_TRIGGERED);
-                    return;
-                }
-                case 29336:                                 // Despawn Buffet
-                case 29379:                                 // Despawn Crypt Guards
-                case 30134:                                 // Despawn Boss Adds
-                case 30228:                                 // Despawn Summons
-                {
-                    if (unitTarget)
-                        ((Creature*)unitTarget)->ForcedDespawn();
                     return;
                 }
                 case 29395:                                 // Break Kaliri Egg
@@ -7068,14 +6996,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
     // normal DB scripted effect
     if (!unitTarget && !gameObjTarget)
         return;
-
-    // Script based implementation. Must be used only for not good for implementation in core spell effects
-    // So called only for not processed cases
-    if (unitTarget->GetTypeId() == TYPEID_UNIT)
-    {
-        if (sScriptDevAIMgr.OnEffectScriptEffect(m_caster, m_spellInfo->Id, eff_idx, (Creature*)unitTarget, m_originalCasterGUID))
-            return;
-    }
 
     // Previous effect might have started script
     if (!ScriptMgr::CanSpellEffectStartDBScript(m_spellInfo, eff_idx))

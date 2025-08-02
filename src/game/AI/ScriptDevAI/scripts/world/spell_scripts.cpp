@@ -54,54 +54,33 @@ enum
     GO_RED_SNAPPER              = 181616,
     NPC_ANGRY_MURLOC            = 17102,
     ITEM_RED_SNAPPER            = 23614,
+    SPELL_FISHED_UP_MURLOC      = 29869,
+    SPELL_FISHED_UP_RED_SNAPPER = 29867,
     // SPELL_SUMMON_TEST           = 49214                  // ! Just wrong spell name? It summon correct creature (17102)but does not appear to be used.
 };
 
-bool EffectDummyGameObj_spell_dummy_go(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, GameObject* pGOTarget, ObjectGuid /*originalCasterGuid*/)
+// 29866 - Cast Fishing Net
+struct CastFishingNet : public SpellScript
 {
-    switch (uiSpellId)
+    void OnEffectExecute(Spell* spell, SpellEffectIndex effIdx) const override
     {
-        case SPELL_CAST_FISHING_NET:
-        {
-            if (uiEffIndex == EFFECT_INDEX_0)
-            {
-                if (pGOTarget->GetRespawnTime() != 0 || pGOTarget->GetEntry() != GO_RED_SNAPPER || pCaster->GetTypeId() != TYPEID_PLAYER)
-                    return true;
+        if (effIdx != EFFECT_INDEX_0)
+            return;
 
-                if (urand(0, 2))
-                {
-                    if (Creature* pMurloc = pCaster->SummonCreature(NPC_ANGRY_MURLOC, pCaster->GetPositionX(), pCaster->GetPositionY() + 20.0f, pCaster->GetPositionZ(), 0.0f, TEMPSPAWN_TIMED_OOC_DESPAWN, 10000))
-                        pMurloc->AI()->AttackStart(pCaster);
-                }
-                else
-                {
-                    if (Item* pItem = ((Player*)pCaster)->StoreNewItemInInventorySlot(ITEM_RED_SNAPPER, 1))
-                        ((Player*)pCaster)->SendNewItem(pItem, 1, true, false);
-                }
+        GameObject* goTarget = spell->GetGOTarget();
+        Unit* caster = spell->GetCaster();
+        if (goTarget->GetRespawnTime() != 0 || !caster->IsPlayer())
+            return;
 
-                pGOTarget->SetLootState(GO_JUST_DEACTIVATED);
-                return true;
-            }
-            return true;
-        }
+        if (urand(0, 2))
+            caster->CastSpell(nullptr, SPELL_FISHED_UP_MURLOC, TRIGGERED_OLD_TRIGGERED);
+        else
+            caster->CastSpell(nullptr, SPELL_FISHED_UP_RED_SNAPPER, TRIGGERED_OLD_TRIGGERED);
     }
-
-    return false;
-}
+};
 
 enum
 {
-    // quest 9629
-    SPELL_TAG_MURLOC                    = 30877,
-    SPELL_TAG_MURLOC_PROC               = 30875,
-    NPC_BLACKSILT_MURLOC                = 17326,
-    NPC_TAGGED_MURLOC                   = 17654,
-
-    // quest 9447
-    SPELL_HEALING_SALVE                 = 29314,
-    SPELL_HEALING_SALVE_DUMMY           = 29319,
-    NPC_MAGHAR_GRUNT                    = 16846,
-
     // target hulking helboar
     SPELL_ADMINISTER_ANTIDOTE           = 34665,
     NPC_HELBOAR                         = 16880,
@@ -117,27 +96,9 @@ enum
     NPC_OWLKIN                          = 16518,
     NPC_OWLKIN_INOC                     = 16534,
 
-    // Quest "Disrupt the Greengill Coast" (11541)
-    SPELL_ORB_OF_MURLOC_CONTROL         = 45109,
-    SPELL_GREENGILL_SLAVE_FREED         = 45110,
-    SPELL_ENRAGE                        = 45111,
-    NPC_FREED_GREENGILL_SLAVE           = 25085,
-    NPC_DARKSPINE_MYRMIDON              = 25060,
-    NPC_DARKSPINE_SIREN                 = 25073,
-
     // quest 9849, item 24501
     SPELL_THROW_GORDAWG_BOULDER         = 32001,
     NPC_MINION_OF_GUROK                 = 18181,
-
-    // npcs that are only interactable while dead
-    SPELL_SHROUD_OF_DEATH               = 10848,
-    SPELL_SPIRIT_PARTICLES              = 17327,
-    NPC_FRANCLORN_FORGEWRIGHT           = 8888,
-    NPC_GAERIYAN                        = 9299,
-
-    //  for quest 10584
-    SPELL_PROTOVOLTAIC_MAGNETO_COLLECTOR = 37136,
-    NPC_ENCASED_ELECTROMENTAL           = 21731,
 
     // quest 6661
     SPELL_MELODIOUS_RAPTURE             = 21050,
@@ -145,116 +106,6 @@ enum
     NPC_DEEPRUN_RAT                     = 13016,
     NPC_ENTHRALLED_DEEPRUN_RAT          = 13017,
 };
-
-bool EffectAuraDummy_spell_aura_dummy_npc(const Aura* pAura, bool bApply)
-{
-    switch (pAura->GetId())
-    {
-        case SPELL_HEALING_SALVE:
-        {
-            if (pAura->GetEffIndex() != EFFECT_INDEX_0)
-                return true;
-
-            if (bApply)
-            {
-                if (Unit* pCaster = pAura->GetCaster())
-                    pCaster->CastSpell(pAura->GetTarget(), SPELL_HEALING_SALVE_DUMMY, TRIGGERED_OLD_TRIGGERED);
-            }
-
-            return true;
-        }
-        case SPELL_HEALING_SALVE_DUMMY:
-        {
-            if (pAura->GetEffIndex() != EFFECT_INDEX_0)
-                return true;
-
-            if (!bApply)
-            {
-                Creature* pCreature = (Creature*)pAura->GetTarget();
-
-                pCreature->UpdateEntry(NPC_MAGHAR_GRUNT);
-
-                if (pCreature->getStandState() == UNIT_STAND_STATE_KNEEL)
-                    pCreature->SetStandState(UNIT_STAND_STATE_STAND);
-
-                pCreature->ForcedDespawn(60 * IN_MILLISECONDS);
-            }
-
-            return true;
-        }        
-        case SPELL_TAG_MURLOC:
-        {
-            Creature* pCreature = (Creature*)pAura->GetTarget();
-
-            if (pAura->GetEffIndex() != EFFECT_INDEX_0)
-                return true;
-
-            if (bApply)
-            {
-                if (pCreature->GetEntry() == NPC_BLACKSILT_MURLOC)
-                {
-                    if (Unit* pCaster = pAura->GetCaster())
-                        pCaster->CastSpell(pCreature, SPELL_TAG_MURLOC_PROC, TRIGGERED_OLD_TRIGGERED);
-                }
-            }
-            else
-            {
-                if (pCreature->GetEntry() == NPC_TAGGED_MURLOC)
-                    pCreature->ForcedDespawn();
-            }
-
-            return true;
-        }
-        case SPELL_ENRAGE:
-        {
-            if (!bApply || pAura->GetTarget()->GetTypeId() != TYPEID_UNIT)
-                return false;
-
-            Creature* pTarget = (Creature*)pAura->GetTarget();
-
-            if (Creature* pCreature = GetClosestCreatureWithEntry(pTarget, NPC_DARKSPINE_MYRMIDON, 50.0f))
-            {
-                pTarget->AI()->AttackStart(pCreature);
-                return true;
-            }
-
-            if (Creature* pCreature = GetClosestCreatureWithEntry(pTarget, NPC_DARKSPINE_SIREN, 50.0f))
-            {
-                pTarget->AI()->AttackStart(pCreature);
-                return true;
-            }
-
-            return false;
-        }
-        case SPELL_SHROUD_OF_DEATH:
-        case SPELL_SPIRIT_PARTICLES:
-        {
-            Creature* pCreature = (Creature*)pAura->GetTarget();
-
-            if (!pCreature || (pCreature->GetEntry() != NPC_FRANCLORN_FORGEWRIGHT && pCreature->GetEntry() != NPC_GAERIYAN))
-                return false;
-
-            if (bApply)
-                pCreature->m_AuraFlags |= UNIT_AURAFLAG_ALIVE_INVISIBLE;
-            else
-                pCreature->m_AuraFlags &= ~UNIT_AURAFLAG_ALIVE_INVISIBLE;
-
-            return false;
-        }
-        case SPELL_PROTOVOLTAIC_MAGNETO_COLLECTOR:
-        {
-            if (pAura->GetEffIndex() != EFFECT_INDEX_0)
-                return true;
-
-            Unit* pTarget = pAura->GetTarget();
-            if (bApply && pTarget->GetTypeId() == TYPEID_UNIT)
-                ((Creature*)pTarget)->UpdateEntry(NPC_ENCASED_ELECTROMENTAL);
-            return true;
-        }
-    }
-
-    return false;
-}
 
 bool EffectDummyCreature_spell_dummy_npc(Unit* pCaster, uint32 uiSpellId, SpellEffectIndex uiEffIndex, Creature* pCreatureTarget, ObjectGuid /*originalCasterGuid*/)
 {
@@ -302,26 +153,6 @@ bool EffectDummyCreature_spell_dummy_npc(Unit* pCaster, uint32 uiSpellId, SpellE
                 pCreatureTarget->UpdateEntry(NPC_EMACIATED_FELBLOOD);
                 return true;
             }
-            return true;
-        }
-        case SPELL_TAG_MURLOC_PROC:
-        {
-            if (uiEffIndex == EFFECT_INDEX_0)
-            {
-                if (pCreatureTarget->GetEntry() == NPC_BLACKSILT_MURLOC)
-                    pCreatureTarget->UpdateEntry(NPC_TAGGED_MURLOC);
-            }
-            return true;
-        }
-        case SPELL_ORB_OF_MURLOC_CONTROL:
-        {
-            pCreatureTarget->CastSpell(pCaster, SPELL_GREENGILL_SLAVE_FREED, TRIGGERED_OLD_TRIGGERED);
-
-            // Freed Greengill Slave
-            pCreatureTarget->UpdateEntry(NPC_FREED_GREENGILL_SLAVE);
-
-            pCreatureTarget->CastSpell(pCreatureTarget, SPELL_ENRAGE, TRIGGERED_OLD_TRIGGERED);
-
             return true;
         }
         case SPELL_THROW_GORDAWG_BOULDER:
@@ -1175,16 +1006,11 @@ struct IllusionPassive : public AuraScript
 void AddSC_spell_scripts()
 {
     Script* pNewScript = new Script;
-    pNewScript->Name = "spell_dummy_go";
-    pNewScript->pEffectDummyGO = &EffectDummyGameObj_spell_dummy_go;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
     pNewScript->Name = "spell_dummy_npc";
     pNewScript->pEffectDummyNPC = &EffectDummyCreature_spell_dummy_npc;
-    pNewScript->pEffectAuraDummy = &EffectAuraDummy_spell_aura_dummy_npc;
     pNewScript->RegisterSelf();
 
+    RegisterSpellScript<CastFishingNet>("spell_cast_fishing_net");
     RegisterSpellScript<GreaterInvisibilityMob>("spell_greater_invisibility_mob");
     RegisterSpellScript<InebriateRemoval>("spell_inebriate_removal");
     RegisterSpellScript<AstralBite>("spell_astral_bite");
